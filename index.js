@@ -80,3 +80,6 @@ renderer.antialias = true;
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.render( scene, camera );
+
+
+//just a quik test
