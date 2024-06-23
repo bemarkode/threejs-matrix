@@ -38,9 +38,7 @@ for ( var i = 0; i < points.length; i ++ ) {
 	positions[ i * 3 + 2 ] = points[ i ].z;
 
 }
-
 geometry.setAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
-
 var material = new THREE.PointsMaterial( { size: 0.5 } );
 var particleSystem = new THREE.Points( geometry, material );
 scene.add( particleSystem );
@@ -51,35 +49,26 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
-
-
 // calculate the center of the grid
 var center = new THREE.Vector3();
 for (var i = 0; i < points.length; i++) {
   center.add(points[i]);
 }
 center.divideScalar(points.length);
-
 // calculate the radius of the grid
 var radius = 0;
 for (var i = 0; i < points.length; i++) {
   radius = Math.max(radius, center.distanceTo(points[i]));
 }
-
 // adjust the camera to see the entire grid
 camera.position.copy(center);
 camera.position.z += radius;
 camera.near = radius / 100;
 camera.far = radius * 100;
 camera.updateProjectionMatrix();
-
-
-
 // make the grid blue and the background white
 particleSystem.material.color.setHex( 0x00ffff ); // blue
-
-
-particleSystem.material.size = 201.;  
+particleSystem.material.size = 1;  
 particleSystem.material.sizeAttenuation = true;
 particleSystem.material.needsUpdate = true;
  // bigger dots
