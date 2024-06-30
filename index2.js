@@ -45,6 +45,14 @@ const material = new THREE.PointsMaterial({ size: 1, color: 0x00ffff });
 const particleSystem = new THREE.Points(geometry, material);
 scene.add(particleSystem);
 
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+animate();
+
 const center = new THREE.Vector3();
 
 for (let i = 0; i < points.length; i++) {
@@ -61,15 +69,12 @@ for (let i = 0; i < points.length; i++) {
 
 camera.position.copy(center);
 camera.position.z += radius;
-camera.position.x += radius*3;
 camera.near = radius / 100;
 camera.far = radius * 100;
 camera.updateProjectionMatrix();
 
-const gridSize = 101; // Assuming the grid is 101x101
-const lines = [];
-
-function drawLinesAtIndex(index, progress) {
+async function drawLinesAtIndex(index) {
+    const gridSize = 101; // Assuming the grid is 101x101
     const row = Math.floor(index / gridSize);
     const col = index % gridSize;
     const rowPoints = [];
@@ -88,60 +93,11 @@ function drawLinesAtIndex(index, progress) {
     const rowGeometry = new THREE.BufferGeometry().setFromPoints(rowPoints);
     const colGeometry = new THREE.BufferGeometry().setFromPoints(colPoints);
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-    
     const rowLine = new THREE.Line(rowGeometry, lineMaterial);
     const colLine = new THREE.Line(colGeometry, lineMaterial);
-    
-    // Scale the lines based on progress
-    rowLine.scale.set(progress, progress, progress);
-    colLine.scale.set(progress, progress, progress);
-
     scene.add(rowLine);
     scene.add(colLine);
-    
-    lines.push(rowLine, colLine);
 }
 
-let currentScroll = 0;
-let targetScroll = 0;
-const maxScroll = 5000; // Adjust this value based on your page height
+await drawLinesAtIndex(2352);
 
-window.addEventListener('scroll', () => {
-    targetScroll = window.scrollY;
-});
-
-function updateScene() {
-    // Smoothly interpolate the current scroll position
-    currentScroll += (targetScroll - currentScroll) * 0.1;
-
-    // Calculate the scale factor based on scroll position
-    const scaleFactor = 1 + (currentScroll / maxScroll) * 4; // Adjust multiplier for desired effect
-    console.log(scaleFactor, targetScroll, currentScroll, maxScroll);
-
-    // Scale the particle system
-    particleSystem.scale.z = scaleFactor;
-
-    // Calculate the number of lines to draw based on scroll position
-    /* const linesToDraw = Math.floor((currentScroll / maxScroll) * points.length);*/
-
-    /*// Remove existing lines
-    lines.forEach(line => scene.remove(line));
-    lines.length = 0;*/
-
-    /*// Draw new lines
-    for (let i = 0; i < linesToDraw; i += gridSize) {
-        const progress = (currentScroll / maxScroll) * (i / linesToDraw);
-        drawLinesAtIndex(i, progress);
-    }*/
-
-    // Update camera position
-    /*
-    camera.position.z = 5 + (currentScroll / maxScroll) * radius;*/
-
-    /*camera.lookAt(center);*/
-    controls.update();
-    renderer.render(scene, camera);
-    requestAnimationFrame(updateScene);
-}
-
-updateScene();
