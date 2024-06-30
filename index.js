@@ -94,6 +94,7 @@ function createGridLines(points, rowIndex, columnIndex) {
     const rowMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 }); // Red color for row
     rowLine = new THREE.Line(rowGeometry, rowMaterial);
     rowLine.geometry.setDrawRange(0, 0); // Start with no points drawn
+    rowLine.scale.z = 0.01;
     scene.add(rowLine);
 
     // Create column line
@@ -105,6 +106,7 @@ function createGridLines(points, rowIndex, columnIndex) {
     const columnMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Green color for column
     columnLine = new THREE.Line(columnGeometry, columnMaterial);
     columnLine.geometry.setDrawRange(0, 0); // Start with no points drawn
+    columnLine.scale.z = 0.01;
     scene.add(columnLine);
 }
 
@@ -140,6 +142,8 @@ function setupScrollAnimation() {
         onUpdate: (self) => {
             const progress = self.progress;
             particleSystem.scale.z = 0.01 + progress * 0.99; // Scale from 0.01 to 1
+            rowLine.scale.z = 0.01 + progress * 0.99; // Scale from 0.01 to 1
+            columnLine.scale.z = 0.01 + progress * 0.99; // Scale from 0.01 to 1
             animateGridLines(progress);
         },
     });
