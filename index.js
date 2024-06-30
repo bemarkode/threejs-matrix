@@ -1,6 +1,5 @@
 import * as THREE from 'https://unpkg.com/three@0.112/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.112/examples/jsm/controls/OrbitControls.js';
-
 var container = document.getElementById('container');
 var points = await fetch('points_cleaned.txt')
   .then(response => {
@@ -41,14 +40,14 @@ geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 var material = new THREE.PointsMaterial({ size: 1, color: 0x00ffff });
 var particleSystem = new THREE.Points(geometry, material);
 scene.add(particleSystem);
-
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
+  positions.set(points.flatMap(p => [p.x, p.y, p.z]));
+  geometry.attributes.position.needsUpdate = true;
 }
 animate();
-
 // calculate the center of the grid
 var center = new THREE.Vector3();
 for (var i = 0; i < points.length; i++) {
@@ -64,36 +63,47 @@ camera.position.z += radius;
 camera.near = radius / 100;
 camera.far = radius * 100;
 camera.updateProjectionMatrix();
-
-function drawLinesAtIndex(index) {
+async function drawLinesAtIndex(index) {
   const gridSize = 101; // Assuming the grid is 101x101
   const row = Math.floor(index / gridSize);
   const col = index % gridSize;
-
   const rowPoints = [];
   const colPoints = [];
-
   // Extract points for the row
   for (let i = 0; i < gridSize; i++) {
     rowPoints.push(points[row * gridSize + i]);
   }
-
   // Extract points for the column
   for (let i = 0; i < gridSize; i++) {
     colPoints.push(points[i * gridSize + col]);
   }
-
   const rowGeometry = new THREE.BufferGeometry().setFromPoints(rowPoints);
   const colGeometry = new THREE.BufferGeometry().setFromPoints(colPoints);
-
   const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-
   const rowLine = new THREE.Line(rowGeometry, lineMaterial);
   const colLine = new THREE.Line(colGeometry, lineMaterial);
-
   scene.add(rowLine);
   scene.add(colLine);
 }
-
-// Example usage
-drawLinesAtIndex(2352); // Change this index to draw lines at different positions
+var scaleFactor = 1;
+const scaleMatrix = new THREE.Matrix4().makeScale(1, 1, scaleFactor);
+function scaleFactorFromScrollY(scrollY) {
+  return scrollY / document.body.scrollHeight;
+}
+window.addEventListener('scroll', () => {
+  scaleFactor = scaleFactorFromScrollY(window.scrollY);
+  console.log(window.scrollY, scaleFactor, document.body.scrollHeight)
+  scaleFactor = scaleFactorFromScrollY(window.scrollY);
+  const scaleMatrix = new THREE.Matrix4().makeScale(1, 1, scaleFactor);
+  for (const point of points) {
+    point.applyMatrix4(scaleMatrix);
+  }
+  positions.set(points.flatMap(p => [p.x, p.y, p.z]));
+  geometry.attributes.position.needsUpdate = true;
+});
+for (const point of points) {
+  point.applyMatrix4(scaleMatrix);
+}
+geometry.attributes.position.needsUpdate = true;
+// scale the lines in z-axis
+await drawLinesAtIndex(2352); 

@@ -1,0 +1,17 @@
+body {
+    display: block;
+    justify-content: center;
+    align-items: center;
+}
+
+#spacer {
+    display: block;
+    height: 2000px;
+}
+
+#container {
+    display: block;
+
+    top: 100px;
+    left: 200px;
+}
