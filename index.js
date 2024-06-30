@@ -4,10 +4,12 @@ import * as THREE from "https://unpkg.com/three@0.112/build/three.module.js";
 const container = document.getElementById("container");
 
 let scene, camera, renderer, particleSystem, center, radius;
+let rowLine, columnLine;
 
 async function init() {
     const points = await loadPoints();
     setupScene(points);
+    createGridLines(points, 23, 26); 
     setupScrollAnimation();
 }
 
@@ -80,6 +82,45 @@ function setupScene(points) {
     animate();
 }
 
+function createGridLines(points, rowIndex, columnIndex) {
+    const gridSize = 101; // Your grid size
+
+    // Create row line
+    const rowPoints = [];
+    for (let i = 0; i < gridSize; i++) {
+        rowPoints.push(points[rowIndex * gridSize + i]);
+    }
+    const rowGeometry = new THREE.BufferGeometry().setFromPoints(rowPoints);
+    const rowMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 }); // Red color for row
+    rowLine = new THREE.Line(rowGeometry, rowMaterial);
+    rowLine.geometry.setDrawRange(0, 0); // Start with no points drawn
+    scene.add(rowLine);
+
+    // Create column line
+    const columnPoints = [];
+    for (let i = 0; i < gridSize; i++) {
+        columnPoints.push(points[i * gridSize + columnIndex]);
+    }
+    const columnGeometry = new THREE.BufferGeometry().setFromPoints(columnPoints);
+    const columnMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Green color for column
+    columnLine = new THREE.Line(columnGeometry, columnMaterial);
+    columnLine.geometry.setDrawRange(0, 0); // Start with no points drawn
+    scene.add(columnLine);
+}
+
+function animateGridLines(progress) {
+    if (rowLine && columnLine) {
+        const totalPoints = 101; // Total points in each line
+        const pointsToDraw = Math.floor(progress * totalPoints);
+        
+        // Animate row line from left to right
+        rowLine.geometry.setDrawRange(0, pointsToDraw);
+        
+        // Animate column line from bottom to top
+        columnLine.geometry.setDrawRange(0, pointsToDraw);
+    }
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -99,6 +140,7 @@ function setupScrollAnimation() {
         onUpdate: (self) => {
             const progress = self.progress;
             particleSystem.scale.z = 0.01 + progress * 0.99; // Scale from 0.01 to 1
+            animateGridLines(progress);
         },
     });
 }
