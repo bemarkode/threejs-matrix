@@ -1,147 +1,112 @@
 import * as THREE from "https://unpkg.com/three@0.112/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.112/examples/jsm/controls/OrbitControls.js";
+//import { OrbitControls } from "https://unpkg.com/three@0.112/examples/jsm/controls/OrbitControls.js";
 
 const container = document.getElementById("container");
 
-const points = await fetch("points_cleaned.txt")
-    .then((response) => {
+let scene, camera, renderer, particleSystem, center, radius;
+
+async function init() {
+    const points = await loadPoints();
+    setupScene(points);
+    setupScrollAnimation();
+}
+
+async function loadPoints() {
+    try {
+        const response = await fetch("points_cleaned.txt");
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        return response.text();
-    })
-    .then((data) => {
+        const data = await response.text();
         const lines = data.split("\n");
-        const points = lines.map((line) => {
-            const values = line.split(",").map((value) => parseFloat(value));
+        return lines.map(line => {
+            const values = line.split(",").map(value => parseFloat(value));
             return new THREE.Vector3(values[0], values[1], values[2]);
         });
-        return points;
-    })
-    .catch((error) => {
-        console.error("Error:", error);
+    } catch (error) {
+        console.error("Error loading points:", error);
+    }
+}
+
+function setupScene(points) {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(container.offsetWidth, container.offsetHeight);
+    camera.aspect = container.offsetWidth / container.offsetHeight;
+    camera.updateProjectionMatrix();
+    console.log(container.innerWidth);
+    container.appendChild(renderer.domElement);
+    
+    //controls = new OrbitControls(camera, renderer.domElement);
+
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(points.length * 3);
+
+    center = new THREE.Vector3();
+    radius = 0;
+
+    for (let i = 0; i < points.length; i++) {
+        const point = points[i];
+        positions[i * 3] = point.x;
+        positions[i * 3 + 1] = point.y;
+        positions[i * 3 + 2] = point.z;
+        center.add(point);
+    }
+
+    center.divideScalar(points.length);
+
+    for (let i = 0; i < points.length; i++) {
+        radius = Math.max(radius, center.distanceTo(new THREE.Vector3(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])));
+    }
+
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({ size: 3, color: 0x00ffff });
+    particleSystem = new THREE.Points(geometry, material);
+    particleSystem.scale.z = 0.01;
+    scene.add(particleSystem);
+
+    // Adjust camera position
+    camera.position.set(center.x, center.y - radius * 2, center.z + radius/2 );
+    camera.lookAt(center);
+    //controls.target.copy(center);
+
+    // Add ambient light to ensure points are visible
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    window.addEventListener('resize', onWindowResize, false);
+
+    animate();
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function setupScrollAnimation() {
+    gsap.registerPlugin(ScrollTrigger);
+
+    ScrollTrigger.create({
+        trigger: container,
+        start: "top top",
+        end: "+=300%",
+        scrub: 0,
+        pin: true,
+        anticipatePin: 0,
+        onUpdate: (self) => {
+            const progress = self.progress;
+            particleSystem.scale.z = 0.01 + progress * 0.99; // Scale from 0.01 to 1
+        },
     });
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(500, 500);
-const controls = new OrbitControls(camera, renderer.domElement);
-container.appendChild(renderer.domElement);
-camera.position.z = 5;
-
-const geometry = new THREE.BufferGeometry();
-const positions = new Float32Array(points.length * 3);
-
-for (let i = 0; i < points.length; i++) {
-    const point = points[i];
-    positions[i * 3] = point.x;
-    positions[i * 3 + 1] = point.y;
-    positions[i * 3 + 2] = point.z;
 }
 
-geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-const material = new THREE.PointsMaterial({ size: 1, color: 0x00ffff });
-const particleSystem = new THREE.Points(geometry, material);
-scene.add(particleSystem);
-
-const center = new THREE.Vector3();
-
-for (let i = 0; i < points.length; i++) {
-    center.add(points[i]);
-}
-
-center.divideScalar(points.length);
-
-let radius = 0;
-
-for (let i = 0; i < points.length; i++) {
-    radius = Math.max(radius, center.distanceTo(points[i]));
-}
-
-camera.position.copy(center);
-camera.position.z += radius;
-camera.position.x += radius*3;
-camera.near = radius / 100;
-camera.far = radius * 100;
-camera.updateProjectionMatrix();
-
-const gridSize = 101; // Assuming the grid is 101x101
-const lines = [];
-
-function drawLinesAtIndex(index, progress) {
-    const row = Math.floor(index / gridSize);
-    const col = index % gridSize;
-    const rowPoints = [];
-    const colPoints = [];
-
-    // Extract points for the row
-    for (let i = 0; i < gridSize; i++) {
-        rowPoints.push(points[row * gridSize + i]);
-    }
-
-    // Extract points for the column
-    for (let i = 0; i < gridSize; i++) {
-        colPoints.push(points[i * gridSize + col]);
-    }
-
-    const rowGeometry = new THREE.BufferGeometry().setFromPoints(rowPoints);
-    const colGeometry = new THREE.BufferGeometry().setFromPoints(colPoints);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-    
-    const rowLine = new THREE.Line(rowGeometry, lineMaterial);
-    const colLine = new THREE.Line(colGeometry, lineMaterial);
-    
-    // Scale the lines based on progress
-    rowLine.scale.set(progress, progress, progress);
-    colLine.scale.set(progress, progress, progress);
-
-    scene.add(rowLine);
-    scene.add(colLine);
-    
-    lines.push(rowLine, colLine);
-}
-
-let currentScroll = 0;
-let targetScroll = 0;
-const maxScroll = 5000; // Adjust this value based on your page height
-
-window.addEventListener('scroll', () => {
-    targetScroll = window.scrollY;
-});
-
-function updateScene() {
-    // Smoothly interpolate the current scroll position
-    currentScroll += (targetScroll - currentScroll) * 0.1;
-
-    // Calculate the scale factor based on scroll position
-    const scaleFactor = 1 + (currentScroll / maxScroll) * 4; // Adjust multiplier for desired effect
-    console.log(scaleFactor, targetScroll, currentScroll, maxScroll);
-
-    // Scale the particle system
-    particleSystem.scale.z = scaleFactor;
-
-    // Calculate the number of lines to draw based on scroll position
-    /* const linesToDraw = Math.floor((currentScroll / maxScroll) * points.length);*/
-
-    /*// Remove existing lines
-    lines.forEach(line => scene.remove(line));
-    lines.length = 0;*/
-
-    /*// Draw new lines
-    for (let i = 0; i < linesToDraw; i += gridSize) {
-        const progress = (currentScroll / maxScroll) * (i / linesToDraw);
-        drawLinesAtIndex(i, progress);
-    }*/
-
-    // Update camera position
-    /*
-    camera.position.z = 5 + (currentScroll / maxScroll) * radius;*/
-
-    /*camera.lookAt(center);*/
-    controls.update();
+function animate() {
+    requestAnimationFrame(animate);
+    //controls.update();
     renderer.render(scene, camera);
-    requestAnimationFrame(updateScene);
 }
 
-updateScene();
+init();

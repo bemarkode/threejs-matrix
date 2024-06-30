@@ -1,17 +1,25 @@
 body {
-    display: block;
-    justify-content: center;
-    align-items: center;
+    margin: 0;
+    padding: 0;
+    height: 5000px; /* Adjust this value to control overall scroll height */
 }
 
 #spacer {
-    display: block;
-    height: 2000px;
+    height: 100vh; /* This pushes the container below the fold */
 }
 
 #container {
-    display: block;
+    position: absolute;
+    
+        width: 500px;
+        height: 500px;
+    
 
-    top: 100px;
-    left: 200px;
+
+    /* transition: transform 0.1s ease-out; */
+}
+
+#container.fixed {
+    position: fixed;
+    top: 0;
 }
