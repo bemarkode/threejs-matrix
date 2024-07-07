@@ -5,6 +5,7 @@ const container = document.getElementById("container");
 let scene, camera, renderer, particleSystem, center, radius;
 let rowLine, columnLine;
 
+
 async function init() {
     const points = await loadPoints("points_cleaned.txt");
     const smoothPoints = await loadPoints("original_points_cleaned.txt");
@@ -149,15 +150,7 @@ function createLine(points, color) {
     return line;
 }
 
-function animateGridLines(progress) {
-    const totalPoints = 101;
-    const pointsToDraw = Math.floor(progress * totalPoints);
 
-    if (rowLine && columnLine) {
-        rowLine.geometry.setDrawRange(0, pointsToDraw);
-        columnLine.geometry.setDrawRange(0, pointsToDraw);
-    }
-}
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -183,27 +176,12 @@ function setupScrollAnimation() {
         anticipatePin: 0,
         onUpdate: self => {
             const progress = self.progress;
-            console.log("Progress:", progress);
-            animatePointsTransition(progress);
-            animateGridLines(progress);
+            console.log("Overall Progress:", progress);
+            animateInChunks(progress);
         },
     });
 }
 
-function animatePointsTransition(progress) {
-    const positions = particleSystem.geometry.attributes.position.array;
-    const { startPositions, smoothPositions } = particleSystem.geometry.userData;
-
-    // Use an easing function to make the transition smoother
-    const easedProgress = easeInOutCubic(progress);
-
-    for (let i = 0; i < positions.length; i++) {
-        // Interpolate between smooth and start positions
-        positions[i] = lerp(startPositions[i], smoothPositions[i], easedProgress);
-    }
-
-    particleSystem.geometry.attributes.position.needsUpdate = true;
-}
 
 // Cubic easing function
 function easeInOutCubic(t) {
@@ -218,6 +196,58 @@ function lerp(start, end, t) {
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    particleSystem.geometry.attributes.position.needsUpdate = true;
+}
+
+
+
+
+
+
+
+
+function animateInChunks(progress) {
+    const numChunks = 2; // We have 2 animations: lines and points
+    const chunkSize = 1 / numChunks;
+
+    if (progress < chunkSize) {
+        // First chunk: Animate grid lines
+        const lineProgress = progress / chunkSize;
+        console.log("Line Progress:", lineProgress);
+        animateGridLines(lineProgress);
+    } else {
+        // Ensure grid lines are fully drawn
+        animateGridLines(1);
+
+        // Second chunk: Animate points
+        const pointProgress = (progress - chunkSize) / chunkSize;
+        console.log("Point Progress:", pointProgress);
+        animatePointsTransition(pointProgress);
+    }
+}
+
+function animateGridLines(progress) {
+    const totalPoints = 101;
+    const pointsToDraw = Math.floor(progress * totalPoints);
+
+    if (rowLine && columnLine) {
+        rowLine.geometry.setDrawRange(0, pointsToDraw);
+        columnLine.geometry.setDrawRange(0, pointsToDraw);
+    }
+}
+
+function animatePointsTransition(progress) {
+    const positions = particleSystem.geometry.attributes.position.array;
+    const { startPositions, smoothPositions } = particleSystem.geometry.userData;
+
+    // Use an easing function to make the transition smoother
+    const easedProgress = easeInOutCubic(progress);
+
+    for (let i = 0; i < positions.length; i++) {
+        // Interpolate between smooth and start positions
+        positions[i] = lerp(startPositions[i], smoothPositions[i], easedProgress);
+    }
+
     particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
