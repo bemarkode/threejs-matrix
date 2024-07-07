@@ -4,7 +4,7 @@ const container = document.getElementById("container");
 
 let scene, camera, renderer, particleSystem, center, radius;
 let rowLine, columnLine;
-
+let rowLines, columnLines, crossingPoint;
 
 async function init() {
     const points = await loadPoints("points_cleaned.txt");
@@ -129,16 +129,32 @@ function adjustCamera() {
 
 function createGridLines(points, rowIndex, columnIndex) {
     const gridSize = 101;
+    crossingPoint = new THREE.Vector3(
+        points[rowIndex * gridSize + columnIndex].x,
+        points[rowIndex * gridSize + columnIndex].y,
+        points[rowIndex * gridSize + columnIndex].z
+    );
 
-    rowLine = createLine(points.slice(rowIndex * gridSize, (rowIndex + 1) * gridSize), 0xff0000);
-    scene.add(rowLine);
+    // Create row lines
+    const rowPoints = points.slice(rowIndex * gridSize, (rowIndex + 1) * gridSize);
+    rowLines = [
+        createLine(rowPoints.slice(0, columnIndex + 1), 0xff0000),
+        createLine(rowPoints.slice(columnIndex).reverse(), 0xff0000)
+    ];
 
+    // Create column lines
     const columnPoints = [];
     for (let i = 0; i < gridSize; i++) {
         columnPoints.push(points[i * gridSize + columnIndex]);
     }
-    columnLine = createLine(columnPoints, 0x00ff00);
-    scene.add(columnLine);
+    columnLines = [
+        createLine(columnPoints.slice(0, rowIndex + 1), 0x00ff00),
+        createLine(columnPoints.slice(rowIndex).reverse(), 0x00ff00)
+    ];
+
+    // Add lines to the scene
+    rowLines.forEach(line => scene.add(line));
+    columnLines.forEach(line => scene.add(line));
 }
 
 function createLine(points, color) {
@@ -146,11 +162,8 @@ function createLine(points, color) {
     const material = new THREE.LineBasicMaterial({ color });
     const line = new THREE.Line(geometry, material);
     line.geometry.setDrawRange(0, 0);
-    line.scale.z = 0.01;
     return line;
 }
-
-
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -199,13 +212,6 @@ function animate() {
     particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
-
-
-
-
-
-
-
 function animateInChunks(progress) {
     const numChunks = 2; // We have 2 animations: lines and points
     const chunkSize = 1 / numChunks;
@@ -228,11 +234,27 @@ function animateInChunks(progress) {
 
 function animateGridLines(progress) {
     const totalPoints = 101;
-    const pointsToDraw = Math.floor(progress * totalPoints);
+    const halfPoints = Math.floor(totalPoints / 2);
 
-    if (rowLine && columnLine) {
-        rowLine.geometry.setDrawRange(0, pointsToDraw);
-        columnLine.geometry.setDrawRange(0, pointsToDraw);
+    function animateLine(line, maxPoints) {
+        const pointsToDraw = Math.floor(progress * maxPoints);
+        line.geometry.setDrawRange(0, pointsToDraw);
+    }
+
+    if (progress < 0.5) {
+        // First half of the animation
+        const adjustedProgress = progress * 2;
+        animateLine(rowLines[0], halfPoints);
+        animateLine(rowLines[1], halfPoints);
+        animateLine(columnLines[0], halfPoints);
+        animateLine(columnLines[1], halfPoints);
+    } else {
+        // Second half of the animation
+        const adjustedProgress = (progress - 0.5) * 2;
+        animateLine(rowLines[0], totalPoints);
+        animateLine(rowLines[1], totalPoints);
+        animateLine(columnLines[0], totalPoints);
+        animateLine(columnLines[1], totalPoints);
     }
 }
 

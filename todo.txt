@@ -7,7 +7,8 @@
 [ ] reverse the animation - the scenario is as follows:
     [*] point animation reversed
     [*] animation in chunks
-    [ ] lines repair
+    [*] lines repair
+    [ ] synchronize lines
     - container shows up
     - dirty grid
     - perhaps animate color in
@@ -21,7 +22,7 @@
 [ ] lines need fixing
 [ ] add lines from other sides
     * start from further sides
-    * once the distance is the same from both sides, start the animation from closer sides
+    * once the dista is the same from both sides, start the animation from closer sides
     * the end should be when row and column lines get to root cause
 
 
