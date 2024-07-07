@@ -1,0 +1,31 @@
+[*] add colors from the grasshopper
+    [*] export colors
+    [*] attach colors to the points
+    // colors are hard to get from Grasshoper. data is not good. use distances in index.js to generate colors instead
+[*] generate the colors from distances
+    // confusing function using hue, but works.
+[ ] reverse the animation - the scenario is as follows:
+    - container shows up
+    - dirty grid
+    - perhaps animate color in
+    - lines get towards root cause
+    - root cause arises
+    - root cause gets taken out
+    - lines fade out
+    - grid flows back to normal
+    - continue scroll
+[*] add base plane from the grasshopper
+[ ] lines need fixing
+[ ] add lines from other sides
+    * start from further sides
+    * once the distance is the same from both sides, start the animation from closer sides
+    * the end should be when row and column lines get to root cause
+
+
+
+[ ] change background color
+[*] perhaps import 3d directly from grasshopper - possibly slow
+    // absolutely slow
+[ ] perhaps generate spheres in place of points
+[ ] spheres change size by the vicinity of the root cause
+[ ] once the root cause is found, animate removal and animate back to smooth grid
