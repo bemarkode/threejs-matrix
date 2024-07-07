@@ -92,6 +92,7 @@ function createGeometry(points, smoothPoints) {
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(points.length * 3);
     const smoothPositions = new Float32Array(smoothPoints.length * 3);
+    const startPositions = new Float32Array(points.length * 3);
 
     points.forEach((point, i) => {
         positions[i * 3] = point.x;
@@ -100,6 +101,9 @@ function createGeometry(points, smoothPoints) {
         smoothPositions[i * 3] = smoothPoints[i].x;
         smoothPositions[i * 3 + 1] = smoothPoints[i].y;
         smoothPositions[i * 3 + 2] = smoothPoints[i].z;
+        startPositions[i * 3] = points[i].x;
+        startPositions[i * 3 + 1] = points[i].y;
+        startPositions[i * 3 + 2] = points[i].z;
         center.add(point);
     });
 
@@ -108,11 +112,11 @@ function createGeometry(points, smoothPoints) {
         radius = Math.max(radius, center.distanceTo(point));
     });
 
-    geometry.setAttribute("position", new THREE.BufferAttribute(smoothPositions, 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
     const colors = new Float32Array(points.length * 3);
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.userData = { originalPositions: positions, smoothPositions };
+    geometry.userData = { startPositions, smoothPositions };
 
     return geometry;
 }
@@ -174,11 +178,12 @@ function setupScrollAnimation() {
             const containerRect = container.getBoundingClientRect();
             return containerRect.top + containerRect.height + window.innerHeight;
         },
-        scrub: 0,
+        scrub: true,
         pin: true,
         anticipatePin: 0,
         onUpdate: self => {
             const progress = self.progress;
+            console.log("Progress:", progress);
             animatePointsTransition(progress);
             animateGridLines(progress);
         },
@@ -187,20 +192,33 @@ function setupScrollAnimation() {
 
 function animatePointsTransition(progress) {
     const positions = particleSystem.geometry.attributes.position.array;
-    const { originalPositions, smoothPositions } = particleSystem.geometry.userData;
+    const { startPositions, smoothPositions } = particleSystem.geometry.userData;
 
-    for (let i = 0; i < positions.length; i += 3) {
-        positions[i] = smoothPositions[i] + (originalPositions[i] - smoothPositions[i]) * progress;
-        positions[i + 1] = smoothPositions[i + 1] + (originalPositions[i + 1] - smoothPositions[i + 1]) * progress;
-        positions[i + 2] = smoothPositions[i + 2] + (originalPositions[i + 2] - smoothPositions[i + 2]) * progress;
+    // Use an easing function to make the transition smoother
+    const easedProgress = easeInOutCubic(progress);
+
+    for (let i = 0; i < positions.length; i++) {
+        // Interpolate between smooth and start positions
+        positions[i] = lerp(startPositions[i], smoothPositions[i], easedProgress);
     }
 
     particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
+// Cubic easing function
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// Linear interpolation function
+function lerp(start, end, t) {
+    return start * (1 - t) + end * t;
+}
+
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
 init();

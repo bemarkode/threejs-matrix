@@ -5,6 +5,8 @@
 [*] generate the colors from distances
     // confusing function using hue, but works.
 [ ] reverse the animation - the scenario is as follows:
+    [*] point animation reversed
+    [ ] lines repair
     - container shows up
     - dirty grid
     - perhaps animate color in
