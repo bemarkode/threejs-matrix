@@ -8,8 +8,7 @@ let rowLines, columnLines, yzPlane,crossingPoint;
 let gridDimensions = null;
 let distances;
 let rowOffset, columnOffset;
-let animationStartTime = null;
-let animationDuration = 5000;
+
 
 const gradientColors = [
     { color: new THREE.Color(0x00FFFF), position: 0 },    // Cyan
@@ -20,13 +19,13 @@ async function init() {
     const points = await loadPoints("points_cleaned.txt");
     const smoothPoints = await loadPoints("original_points_cleaned.txt");
     setupScene(points, smoothPoints);
+    gridDimensions = calculateGridDimensions(points);
     createGridLines(points, 23, 26);
     setupScrollAnimation();
     
     distances = calculateDistances(points, smoothPoints);
     //const mappedColors = mapDistancesToColors(distances);
     //updateGeometryColors(mappedColors);
-    //startPlaneAnimation();
 }
 
 async function loadPoints(url) {
@@ -44,7 +43,6 @@ async function loadPoints(url) {
         console.error(`Error loading points from ${url}:`, error);
     }
 }
-
 
 function setupScene(points, smoothPoints) {
     scene = new THREE.Scene();
@@ -84,33 +82,6 @@ function setupScene(points, smoothPoints) {
     animate();
 }
 
-/*function startPlaneAnimation() {
-    animationStartTime = Date.now();
-}*/
-
-/*function updatePlanePosition() {
-    if (animationStartTime === null || !yzPlane) return;
-
-    const { width } = gridDimensions;
-    const startX = particleSystem.geometry.attributes.position.array[0];
-    const endX = startX + width;
-
-    const elapsedTime = Date.now() - animationStartTime;
-    let progress = Math.min(elapsedTime / animationDuration, 1);
-    
-    // Apply easing function (you can use easeInOutCubic or any other easing function)
-    progress = easeInOutCubic(progress);
-
-    const newX = startX + (endX - startX) * progress;
-    yzPlane.position.setX(newX);
-
-    updatePointColors(newX);
-
-    if (progress >= 1) {
-        animationStartTime = null; // Stop the animation
-    }
-}*/
-
 function createGeometry(points, smoothPoints) {
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(points.length * 3);
@@ -144,6 +115,7 @@ function createGeometry(points, smoothPoints) {
 
     return geometry;
 }
+
 function calculateGridDimensions(points) {
     // If dimensions are already calculated, return the stored value
     if (gridDimensions) {
@@ -175,6 +147,7 @@ function calculateGridDimensions(points) {
 
     return gridDimensions;
 }
+
 function createYZPlane(points) {
     const { width, length } = gridDimensions;
 
@@ -217,18 +190,18 @@ function createYZPlane(points) {
 
     return planeMesh;
 }
+
 function adjustCamera() {
     camera.position.set(center.x, center.y - radius, center.z + radius / 4);
     camera.lookAt(center);
 }
+
 function animate() {
     requestAnimationFrame(animate);
-    // updatePlanePosition();
     renderer.render(scene, camera);
     particleSystem.geometry.attributes.position.needsUpdate = true;
     if (yzPlane) yzPlane.position.needsUpdate = true;
 }
-
 
 function createGridLines(points, rowIndex, columnIndex) {
     const gridSize = 101;
@@ -262,6 +235,7 @@ function createGridLines(points, rowIndex, columnIndex) {
     columnOffset = gridSize - columnIndex;
 
 }
+
 function createLine(points, color) {
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineBasicMaterial({ color });
@@ -269,7 +243,6 @@ function createLine(points, color) {
     line.geometry.setDrawRange(0, 0);
     return line;
 }
-
 
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
@@ -340,25 +313,6 @@ function animatePlaneMovement(progress) {
 
 }
 
-function updatePointColors(planePosition) {
-    const colors = particleSystem.geometry.attributes.color;
-    const positions = particleSystem.geometry.attributes.position;
-    const minDistance = Math.min(...distances);
-    const maxDistance = Math.max(...distances);
-
-    for (let i = 0; i < positions.count; i++) {
-        const x = positions.getX(i);
-        if (x <= planePosition) {
-            const color = mapDistanceToCustomGradient(distances[i], minDistance, maxDistance);
-            colors.setXYZ(i, color.r, color.g, color.b);
-        } else {
-            colors.setXYZ(i, 1, 1, 1); // White for points not yet reached
-        }
-    }
-
-    colors.needsUpdate = true;
-}
-
 function animateGridLines(progress) {
     const totalPoints = 101;
 
@@ -388,7 +342,6 @@ function animatePointsTransition(progress) {
 
     particleSystem.geometry.attributes.position.needsUpdate = true;
 }
-
 
 function calculateDistances(points, smoothPoints) {
     if (points.length !== smoothPoints.length) {
@@ -430,6 +383,25 @@ function lerpColor(colorA, colorB, t) {
         colorA.g + (colorB.g - colorA.g) * t,
         colorA.b + (colorB.b - colorA.b) * t
     );
+}
+
+function updatePointColors(planePosition) {
+    const colors = particleSystem.geometry.attributes.color;
+    const positions = particleSystem.geometry.attributes.position;
+    const minDistance = Math.min(...distances);
+    const maxDistance = Math.max(...distances);
+
+    for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        if (x <= planePosition) {
+            const color = mapDistanceToCustomGradient(distances[i], minDistance, maxDistance);
+            colors.setXYZ(i, color.r, color.g, color.b);
+        } else {
+            colors.setXYZ(i, 1, 1, 1); // White for points not yet reached
+        }
+    }
+
+    colors.needsUpdate = true;
 }
 
 function onWindowResize() {
