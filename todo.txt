@@ -4,11 +4,11 @@
     // colors are hard to get from Grasshoper. data is not good. use distances in index.js to generate colors instead
 [*] generate the colors from distances
     // confusing function using hue, but works.
-[ ] reverse the animation - the scenario is as follows:
+[*] reverse the animation - the scenario is as follows:
     [*] point animation reversed
     [*] animation in chunks
     [*] lines repair
-    [ ] synchronize lines
+    [*] synchronize lines
     - container shows up
     - dirty grid
     - perhaps animate color in
