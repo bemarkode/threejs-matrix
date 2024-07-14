@@ -7,6 +7,9 @@ let rowLine, columnLine;
 let rowLines, columnLines, yzPlane,crossingPoint;
 let gridDimensions = null;
 let distances;
+let rowOffset, columnOffset;
+
+
 const gradientColors = [
     { color: new THREE.Color(0x00FFFF), position: 0 },    // Cyan
     { color: new THREE.Color(0xFF00FF), position: 1 }     // Magenta
@@ -15,7 +18,6 @@ const gradientColors = [
 async function init() {
     const points = await loadPoints("points_cleaned.txt");
     const smoothPoints = await loadPoints("original_points_cleaned.txt");
-
     setupScene(points, smoothPoints);
     createGridLines(points, 23, 26);
     setupScrollAnimation();
@@ -215,6 +217,9 @@ function createGridLines(points, rowIndex, columnIndex) {
     // Add lines to the scene
     rowLines.forEach(line => scene.add(line));
     columnLines.forEach(line => scene.add(line));
+    rowOffset = gridSize - rowIndex;
+    columnOffset = gridSize - columnIndex;
+
 }
 
 function createLine(points, color) {
@@ -255,7 +260,6 @@ function animateInChunks(progress) {
 
     if (progress < chunkSize) {
         const planeProgress = progress / chunkSize;
-        console.log("Plane Progress:", planeProgress);
         animatePlaneMovement(planeProgress);
     } else if (progress < chunkSize * 2) {
         // First chunk: Animate grid lines
@@ -268,7 +272,6 @@ function animateInChunks(progress) {
 
         // Second chunk: Animate points
         const pointProgress = (progress - chunkSize * 2) / chunkSize;
-        console.log("Point Progress:", pointProgress);
         animatePointsTransition(pointProgress);
     }
 }
@@ -294,33 +297,21 @@ function animatePlaneMovement(progress) {
     
     updatePointColors(newX);
 
-    console.log("Plane position:", newX);
 }
 
 function animateGridLines(progress) {
     const totalPoints = 101;
-    const halfPoints = Math.floor(totalPoints / 2);
 
     function animateLine(line, maxPoints) {
-        const pointsToDraw = Math.floor(progress * maxPoints);
+        const pointsToDraw = lerp(0, maxPoints, progress);
+        console.log("Points to draw:", pointsToDraw);                      
         line.geometry.setDrawRange(0, pointsToDraw);
     }
 
-    if (progress < 0.5) {
-        // First half of the animation
-        const adjustedProgress = progress * 2;
-        animateLine(rowLines[0], halfPoints);
-        animateLine(rowLines[1], halfPoints);
-        animateLine(columnLines[0], halfPoints);
-        animateLine(columnLines[1], halfPoints);
-    } else {
-        // Second half of the animation
-        const adjustedProgress = (progress - 0.5) * 2;
-        animateLine(rowLines[0], totalPoints);
+        animateLine(rowLines[0], totalPoints - rowOffset);
         animateLine(rowLines[1], totalPoints);
-        animateLine(columnLines[0], totalPoints);
+        animateLine(columnLines[0], totalPoints - columnOffset);
         animateLine(columnLines[1], totalPoints);
-    }
 }
 
 function animatePointsTransition(progress) {
