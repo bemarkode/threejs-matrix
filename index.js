@@ -65,8 +65,17 @@ function setupScene(points, smoothPoints) {
 
     adjustCamera();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
+    // Add ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 1, 1).normalize();
+    scene.add(directionalLight);
+
+    // Add a hemisphere light for better overall illumination
+    const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+    scene.add(hemisphereLight);
 
     window.addEventListener('resize', onWindowResize, false);
 
@@ -74,21 +83,34 @@ function setupScene(points, smoothPoints) {
 }
 
 function createInstancedMesh(points, smoothPoints) {
-    const sphereGeometry = new THREE.SphereGeometry(10, 16, 16);
-    const material = new THREE.MeshBasicMaterial();
+    const sphereGeometry = new THREE.SphereGeometry(15, 16, 16);
+    // Use MeshStandardMaterial for physically based rendering
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: false,
+        metalness: 0.1,
+        roughness: 0.7,
+        emissive: 0x111111, // Add a slight emissive color
+    });
 
     const instancedMesh = new THREE.InstancedMesh(sphereGeometry, material, points.length);
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
     const matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
+    const color = new THREE.Color(1, 1, 1); // Start with white color
 
     points.forEach((point, i) => {
         matrix.setPosition(point);
         instancedMesh.setMatrixAt(i, matrix);
-        instancedMesh.setColorAt(i, color.setRGB(1, 1, 1));
+        instancedMesh.setColorAt(i, color);
         center.add(point);
     });
+
+    // Log the first few colors for debugging
+    for (let i = 0; i < 5; i++) {
+        const color = new THREE.Color();
+        instancedMesh.getColorAt(i, color);
+        console.log(`Initial color for sphere ${i}:`, color);
+    }
 
     center.divideScalar(points.length);
     points.forEach(point => {
@@ -223,6 +245,10 @@ function adjustCamera() {
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    if (instancedMesh) {
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        instancedMesh.instanceColor.needsUpdate = true;
+    }
     if (yzPlane) yzPlane.position.needsUpdate = true;
 }
 
@@ -422,6 +448,13 @@ function updatePointColors(planePosition) {
     }
 
     instancedMesh.instanceColor.needsUpdate = true;
+
+    // Log the first few colors after update for debugging
+    for (let i = 0; i < 5; i++) {
+        const color = new THREE.Color();
+        instancedMesh.getColorAt(i, color);
+        console.log(`Updated color for sphere ${i}:`, color);
+    }
 }
 
 function onWindowResize() {

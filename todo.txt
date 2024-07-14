@@ -3,4 +3,6 @@
 [*] remove the non-scroll animation for now
 [*] edit scaning plane appearance - gradient
 [ ] add antialiasing - later
-[ ] add spheres 
+[*] add spheres 
+[ ] add light source
+[ ] add phong material to spheres
