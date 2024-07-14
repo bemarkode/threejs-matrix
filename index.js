@@ -47,8 +47,22 @@ async function loadPoints(url) {
 function setupScene(points, smoothPoints) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-    renderer = new THREE.WebGLRenderer();
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+        stencil: false,
+        depth: true
+    });
+    
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(new THREE.Color(0x000000), 0); // background opacity 0
     renderer.setSize(container.offsetWidth, container.offsetHeight);
+    
+    // Enable shadow mapping if you're using shadows
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     camera.aspect = container.offsetWidth / container.offsetHeight;
     camera.updateProjectionMatrix();
     container.appendChild(renderer.domElement);
@@ -66,14 +80,13 @@ function setupScene(points, smoothPoints) {
     adjustCamera();
 
     // Add ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
 
-    // Add a hemisphere light for better overall illumination
     const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
     scene.add(hemisphereLight);
 
@@ -83,13 +96,13 @@ function setupScene(points, smoothPoints) {
 }
 
 function createInstancedMesh(points, smoothPoints) {
-    const sphereGeometry = new THREE.SphereGeometry(15, 16, 16);
+    const sphereGeometry = new THREE.SphereGeometry(10, 16, 16);
     // Use MeshStandardMaterial for physically based rendering
     const material = new THREE.MeshStandardMaterial({
         vertexColors: false,
-        metalness: 0.1,
-        roughness: 0.7,
-        emissive: 0x111111, // Add a slight emissive color
+        metalness: 0.5,
+        roughness: 0.2,
+        emissive: 0x000000, // Add a slight emissive color
     });
 
     const instancedMesh = new THREE.InstancedMesh(sphereGeometry, material, points.length);
@@ -109,7 +122,6 @@ function createInstancedMesh(points, smoothPoints) {
     for (let i = 0; i < 5; i++) {
         const color = new THREE.Color();
         instancedMesh.getColorAt(i, color);
-        console.log(`Initial color for sphere ${i}:`, color);
     }
 
     center.divideScalar(points.length);
@@ -183,7 +195,6 @@ function calculateGridDimensions(points) {
 
         // Store the calculated dimensions
         gridDimensions = { width: gridWidth, length: gridLength };
-        console.log("Calculated grid dimensions:", gridDimensions);
     } catch (error) {
         console.error("Error calculating grid dimensions:", error);
         // Set default values if calculation fails
@@ -311,7 +322,6 @@ function setupScrollAnimation() {
         anticipatePin: 0,
         onUpdate: self => {
             const progress = self.progress;
-            console.log("Overall Progress:", progress);
             animateInChunks(progress);
         },
     });
@@ -453,7 +463,6 @@ function updatePointColors(planePosition) {
     for (let i = 0; i < 5; i++) {
         const color = new THREE.Color();
         instancedMesh.getColorAt(i, color);
-        console.log(`Updated color for sphere ${i}:`, color);
     }
 }
 
