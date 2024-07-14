@@ -96,13 +96,18 @@ function setupScene(points, smoothPoints) {
 }
 
 function createInstancedMesh(points, smoothPoints) {
-    const sphereGeometry = new THREE.SphereGeometry(10, 16, 16);
-    // Use MeshStandardMaterial for physically based rendering
+    // Calculate distances and sphere sizes
+    const distances = calculateDistances(points, smoothPoints);
+    const sphereSizes = calculateSphereSizes(distances);
+
+    // Create a sphere geometry with a unit radius
+    const sphereGeometry = new THREE.SphereGeometry(1, 16, 16);
+
     const material = new THREE.MeshStandardMaterial({
         vertexColors: false,
         metalness: 0.5,
         roughness: 0.2,
-        emissive: 0x000000, // Add a slight emissive color
+        emissive: 0x000000,
     });
 
     const instancedMesh = new THREE.InstancedMesh(sphereGeometry, material, points.length);
@@ -112,17 +117,13 @@ function createInstancedMesh(points, smoothPoints) {
     const color = new THREE.Color(1, 1, 1); // Start with white color
 
     points.forEach((point, i) => {
-        matrix.setPosition(point);
+        const size = sphereSizes[i];
+        matrix.makeScale(size, size, size);  // Scale the sphere
+        matrix.setPosition(point);           // Set the position
         instancedMesh.setMatrixAt(i, matrix);
         instancedMesh.setColorAt(i, color);
         center.add(point);
     });
-
-    // Log the first few colors for debugging
-    for (let i = 0; i < 5; i++) {
-        const color = new THREE.Color();
-        instancedMesh.getColorAt(i, color);
-    }
 
     center.divideScalar(points.length);
     points.forEach(point => {
@@ -131,7 +132,8 @@ function createInstancedMesh(points, smoothPoints) {
 
     instancedMesh.userData = {
         startPositions: points,
-        smoothPositions: smoothPoints
+        smoothPositions: smoothPoints,
+        sphereSizes: sphereSizes
     };
 
     instancedMesh.instanceMatrix.needsUpdate = true;
@@ -387,14 +389,17 @@ function animateGridLines(progress) {
 
 function animatePointsTransition(progress) {
     const easedProgress = easeInOutCubic(progress);
-    const { startPositions, smoothPositions } = instancedMesh.userData;
+    const { startPositions, smoothPositions, sphereSizes } = instancedMesh.userData;
     const matrix = new THREE.Matrix4();
 
     for (let i = 0; i < instancedMesh.count; i++) {
         const startPos = startPositions[i];
         const smoothPos = smoothPositions[i];
         const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, easedProgress);
-        matrix.setPosition(newPos);
+        const size = sphereSizes[i];
+        
+        matrix.makeScale(size, size, size);  // Set the scale
+        matrix.setPosition(newPos);          // Set the position
         instancedMesh.setMatrixAt(i, matrix);
     }
 
@@ -408,6 +413,17 @@ function calculateDistances(points, smoothPoints) {
     }
 
     return points.map((point, i) => point.distanceTo(smoothPoints[i]));
+}
+function calculateSphereSizes(distances) {
+    const minDistance = Math.min(...distances);
+    const maxDistance = Math.max(...distances);
+    const minSize = 5;  // Minimum sphere size
+    const maxSize = 25; // Maximum sphere size
+
+    return distances.map(distance => {
+        const t = (distance - minDistance) / (maxDistance - minDistance);
+        return minSize + t * (maxSize - minSize);
+    });
 }
 
 function mapDistanceToCustomGradient(distance, minDistance, maxDistance) {

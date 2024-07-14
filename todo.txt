@@ -2,7 +2,8 @@
 [*] refactor and update function map
 [*] remove the non-scroll animation for now
 [*] edit scaning plane appearance - gradient
-[ ] add antialiasing - later
+[*] add antialiasing 
 [*] add spheres 
-[ ] add light source
-[ ] add phong material to spheres
+[*] add light source
+[*] add phong material to spheres
+[ ] add size by distance
