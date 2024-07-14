@@ -2,9 +2,9 @@ import * as THREE from "https://unpkg.com/three@0.166.1/build/three.module.js";
 
 const container = document.getElementById("container");
 
-let scene, camera, renderer, particleSystem, center, radius;
+let scene, camera, renderer, instancedMesh, center, radius;
 let rowLine, columnLine;
-let rowLines, columnLines, yzPlane,crossingPoint;
+let rowLines, columnLines, yzPlane, crossingPoint;
 let gridDimensions = null;
 let distances;
 let rowOffset, columnOffset;
@@ -56,15 +56,8 @@ function setupScene(points, smoothPoints) {
     center = new THREE.Vector3();
     radius = 0;
 
-
-
-   
-
-    const geometry = createGeometry(points, smoothPoints);
-    const material = new THREE.PointsMaterial({ size: 3, vertexColors: true });
-    particleSystem = new THREE.Points(geometry, material);
-    scene.add(particleSystem);
-
+    instancedMesh = createInstancedMesh(points, smoothPoints);
+    scene.add(instancedMesh);
 
     calculateGridDimensions(points);
     yzPlane = createYZPlane(points);
@@ -72,14 +65,45 @@ function setupScene(points, smoothPoints) {
 
     adjustCamera();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
     scene.add(ambientLight);
-
-
 
     window.addEventListener('resize', onWindowResize, false);
 
     animate();
+}
+
+function createInstancedMesh(points, smoothPoints) {
+    const sphereGeometry = new THREE.SphereGeometry(10, 16, 16);
+    const material = new THREE.MeshBasicMaterial();
+
+    const instancedMesh = new THREE.InstancedMesh(sphereGeometry, material, points.length);
+    instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+    const matrix = new THREE.Matrix4();
+    const color = new THREE.Color();
+
+    points.forEach((point, i) => {
+        matrix.setPosition(point);
+        instancedMesh.setMatrixAt(i, matrix);
+        instancedMesh.setColorAt(i, color.setRGB(1, 1, 1));
+        center.add(point);
+    });
+
+    center.divideScalar(points.length);
+    points.forEach(point => {
+        radius = Math.max(radius, center.distanceTo(point));
+    });
+
+    instancedMesh.userData = {
+        startPositions: points,
+        smoothPositions: smoothPoints
+    };
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    instancedMesh.instanceColor.needsUpdate = true;
+
+    return instancedMesh;
 }
 
 function createGeometry(points, smoothPoints) {
@@ -199,7 +223,6 @@ function adjustCamera() {
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
-    particleSystem.geometry.attributes.position.needsUpdate = true;
     if (yzPlane) yzPlane.position.needsUpdate = true;
 }
 
@@ -297,20 +320,18 @@ function animatePlaneMovement(progress) {
     }
 
     const { width, length } = gridDimensions;
-    const startX = particleSystem.geometry.attributes.position.array[0];
+    const { startPositions } = instancedMesh.userData;
+    const startX = startPositions[0].x;
     const endX = startX + length;  // Use the actual grid width
 
     // Use easeInOutCubic for smoother movement
     const easedProgress = easeInOutCubic(progress);
-    //const newX = startX + (endX - startX) * easedProgress;
     const newX = lerp(startX, endX, progress);
 
     yzPlane.position.setX(newX);
     yzPlane.updateMatrix();
-
     
     updatePointColors(newX);
-
 }
 
 function animateGridLines(progress) {
@@ -329,18 +350,19 @@ function animateGridLines(progress) {
 }
 
 function animatePointsTransition(progress) {
-    const positions = particleSystem.geometry.attributes.position.array;
-    const { startPositions, smoothPositions } = particleSystem.geometry.userData;
-
-    // Use an easing function to make the transition smoother
     const easedProgress = easeInOutCubic(progress);
+    const { startPositions, smoothPositions } = instancedMesh.userData;
+    const matrix = new THREE.Matrix4();
 
-    for (let i = 0; i < positions.length; i++) {
-        // Interpolate between smooth and start positions
-        positions[i] = lerp(startPositions[i], smoothPositions[i], progress);
+    for (let i = 0; i < instancedMesh.count; i++) {
+        const startPos = startPositions[i];
+        const smoothPos = smoothPositions[i];
+        const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, easedProgress);
+        matrix.setPosition(newPos);
+        instancedMesh.setMatrixAt(i, matrix);
     }
 
-    particleSystem.geometry.attributes.position.needsUpdate = true;
+    instancedMesh.instanceMatrix.needsUpdate = true;
 }
 
 function calculateDistances(points, smoothPoints) {
@@ -386,22 +408,20 @@ function lerpColor(colorA, colorB, t) {
 }
 
 function updatePointColors(planePosition) {
-    const colors = particleSystem.geometry.attributes.color;
-    const positions = particleSystem.geometry.attributes.position;
     const minDistance = Math.min(...distances);
     const maxDistance = Math.max(...distances);
+    const { startPositions } = instancedMesh.userData;
 
-    for (let i = 0; i < positions.count; i++) {
-        const x = positions.getX(i);
-        if (x <= planePosition) {
+    for (let i = 0; i < instancedMesh.count; i++) {
+        if (startPositions[i].x <= planePosition) {
             const color = mapDistanceToCustomGradient(distances[i], minDistance, maxDistance);
-            colors.setXYZ(i, color.r, color.g, color.b);
+            instancedMesh.setColorAt(i, color);
         } else {
-            colors.setXYZ(i, 1, 1, 1); // White for points not yet reached
+            instancedMesh.setColorAt(i, new THREE.Color(1, 1, 1)); // White for spheres not yet reached
         }
     }
 
-    colors.needsUpdate = true;
+    instancedMesh.instanceColor.needsUpdate = true;
 }
 
 function onWindowResize() {
