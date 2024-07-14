@@ -176,30 +176,43 @@ function calculateGridDimensions(points) {
     return gridDimensions;
 }
 function createYZPlane(points) {
-    const gridSize = 101;
-    const firstRowPoint = points[0]; // First point of the first row
-
     const { width, length } = gridDimensions;
-    
 
     // Create a plane geometry
-    const planeGeometry = new THREE.PlaneGeometry(width, width); // Adjust size as needed
+    const planeGeometry = new THREE.PlaneGeometry(width, width, 1, 32);  // Increased vertical segments for smoother gradient
 
-    // Create a semi-transparent white material
-    const planeMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
+    // Create custom shader material
+    const planeMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            colorBottom: { value: new THREE.Color(gradientColors[0].color) },
+            colorTop: { value: new THREE.Color(gradientColors[gradientColors.length - 1].color) }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 colorBottom;
+            uniform vec3 colorTop;
+            varying vec2 vUv;
+            void main() {
+                vec3 color = mix(colorTop, colorBottom, vUv.x);
+                float opacity = sin(vUv.x * 3.14159);
+                gl_FragColor = vec4(color, opacity * 0.5);  // Adjust the 0.5 to control overall opacity
+            }
+        `,
         transparent: true,
-        opacity: 0.5,
         side: THREE.DoubleSide
     });
 
     // Create the plane mesh
     const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
 
-    // Position the plane at the first row
-    planeMesh.position.set(firstRowPoint.x, center.y, center.z);
-
-    // Rotate the plane to align with YZ plane
+    // Position the plane
+    planeMesh.position.set(points[0].x, center.y, center.z);
     planeMesh.rotation.y = Math.PI / 2;
 
     return planeMesh;
@@ -418,8 +431,6 @@ function lerpColor(colorA, colorB, t) {
         colorA.b + (colorB.b - colorA.b) * t
     );
 }
-
-
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
