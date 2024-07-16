@@ -429,11 +429,34 @@ function animatePointsTransition(progress) {
     const { startPositions, smoothPositions, sphereSizes } = instancedMesh.userData;
     const matrix = new THREE.Matrix4();
 
+    // Calculate distances from crossing point
+    const distancesFromCrossing = startPositions.map(pos => pos.distanceTo(crossingPoint));
+    const maxDistance = Math.max(...distancesFromCrossing);
+
     for (let i = 0; i < instancedMesh.count; i++) {
         const startPos = startPositions[i];
         const smoothPos = smoothPositions[i];
-        const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, progress);
         const size = sphereSizes[i];
+
+        // Calculate start and end times for each sphere
+        const distanceRatio = distancesFromCrossing[i] / maxDistance;
+        const startTime = distanceRatio * 1; // Adjust this multiplier to control stagger amount
+        const endTime = 1 - (1 - distanceRatio) * 0.5; // Adjust this to control end time stagger
+
+        // Calculate local progress for this sphere
+        let localProgress;
+        if (progress < startTime) {
+            localProgress = 0;
+        } else if (progress > endTime) {
+            localProgress = 1;
+        } else {
+            localProgress = (progress - startTime) / (endTime - startTime);
+        }
+
+        // Ease the local progress
+        // localProgress = easeInOutCubic(localProgress);
+
+        const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, localProgress);
         
         matrix.makeScale(size, size, size);  // Set the scale
         matrix.setPosition(newPos);          // Set the position

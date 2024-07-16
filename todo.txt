@@ -7,6 +7,7 @@
 [*] add light source
 [*] add phong material to spheres
 [*] add size by distance
-[ ] refactor and update map
+[*] refactor and update map
 [ ] modify the line appearance - later
-[ ] add a chunk with root sphere growing
+[*] add a chunk with root sphere growing
+[*] rework the point transition
