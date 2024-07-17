@@ -11,3 +11,4 @@
 [ ] modify the line appearance - later
 [*] add a chunk with root sphere growing
 [*] rework the point transition
+[ ] animate the colors transition

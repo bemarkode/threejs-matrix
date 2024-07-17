@@ -431,17 +431,19 @@ function animatePointsTransition(progress) {
 
     // Calculate distances from crossing point
     const distancesFromCrossing = startPositions.map(pos => pos.distanceTo(crossingPoint));
-    const maxDistance = Math.max(...distancesFromCrossing);
+    const maxDistanceFromCrossing = Math.max(...distancesFromCrossing);
+    const maxDistance = Math.max(...distances);
 
     for (let i = 0; i < instancedMesh.count; i++) {
         const startPos = startPositions[i];
         const smoothPos = smoothPositions[i];
         const size = sphereSizes[i];
+        const pointDistance = startPos.distanceTo(smoothPos);
 
         // Calculate start and end times for each sphere
-        const distanceRatio = distancesFromCrossing[i] / maxDistance;
+        const distanceRatio = distancesFromCrossing[i] / maxDistanceFromCrossing;
         const startTime = distanceRatio * 1; // Adjust this multiplier to control stagger amount
-        const endTime = 1 - (1 - distanceRatio) * 0.5; // Adjust this to control end time stagger
+        const endTime = 1 - (1 - distanceRatio) * 0.75; // Adjust this to control end time stagger
 
         // Calculate local progress for this sphere
         let localProgress;
@@ -453,7 +455,7 @@ function animatePointsTransition(progress) {
             localProgress = (progress - startTime) / (endTime - startTime);
         }
 
-        // Ease the local progress
+        // Ease the local progress if desired
         // localProgress = easeInOutCubic(localProgress);
 
         const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, localProgress);
@@ -461,9 +463,18 @@ function animatePointsTransition(progress) {
         matrix.makeScale(size, size, size);  // Set the scale
         matrix.setPosition(newPos);          // Set the position
         instancedMesh.setMatrixAt(i, matrix);
+
+        // Calculate color based on distance and overall animation progress
+        const colorProgress = pointDistance / maxDistance;
+        const startColor = lerpColor(gradientColors[0].color, gradientColors[1].color, colorProgress);
+        const endColor = new THREE.Color(0x00FFFF);
+        const finalColor = lerpColor(startColor, endColor, localProgress);
+        
+        instancedMesh.setColorAt(i, finalColor);
     }
 
     instancedMesh.instanceMatrix.needsUpdate = true;
+    instancedMesh.instanceColor.needsUpdate = true;
 }
 
 function calculateDistances(points, smoothPoints) {
