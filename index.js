@@ -434,10 +434,12 @@ function animatePointsTransition(progress) {
     const maxDistanceFromCrossing = Math.max(...distancesFromCrossing);
     const maxDistance = Math.max(...distances);
 
+    const minSize = 10;  // Minimum sphere size
+
     for (let i = 0; i < instancedMesh.count; i++) {
         const startPos = startPositions[i];
         const smoothPos = smoothPositions[i];
-        const size = sphereSizes[i];
+        const initialSize = sphereSizes[i];
         const pointDistance = startPos.distanceTo(smoothPos);
 
         // Calculate start and end times for each sphere
@@ -460,7 +462,10 @@ function animatePointsTransition(progress) {
 
         const newPos = new THREE.Vector3().lerpVectors(startPos, smoothPos, localProgress);
         
-        matrix.makeScale(size, size, size);  // Set the scale
+        // Calculate the new size
+        const newSize = lerp(initialSize, minSize, localProgress);
+        
+        matrix.makeScale(newSize, newSize, newSize);  // Set the new scale
         matrix.setPosition(newPos);          // Set the position
         instancedMesh.setMatrixAt(i, matrix);
 
