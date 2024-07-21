@@ -22,6 +22,8 @@ async function init() {
     createGridLines(points, 23, 26);
     createCrossingSphere(crossingPoint);
     setupScrollAnimation();
+
+
     
     distances = calculateDistances(points, smoothPoints);
     //const mappedColors = mapDistancesToColors(distances);
@@ -43,6 +45,7 @@ async function loadPoints(url) {
         console.error(`Error loading points from ${url}:`, error);
     }
 }
+
 
 function setupScene(points, smoothPoints) {
     scene = new THREE.Scene();
@@ -77,6 +80,8 @@ function setupScene(points, smoothPoints) {
     yzPlane = createYZPlane(points);
     scene.add(yzPlane);
 
+
+
     adjustCamera();
 
     // Add ambient light
@@ -93,8 +98,17 @@ function setupScene(points, smoothPoints) {
     window.addEventListener('resize', onWindowResize, false);
 
     animate();
+
+
 }
 
+/**
+ * Creates an instanced mesh with spheres of varying sizes based on the given points.
+ *
+ * @param {Array<THREE.Vector3>} points - The points to create spheres at.
+ * @param {Array<THREE.Vector3>} smoothPoints - The smoothed points.
+ * @return {THREE.InstancedMesh} The created instanced mesh.
+ */
 function createInstancedMesh(points, smoothPoints) {
     // Calculate distances and sphere sizes
     const distances = calculateDistances(points, smoothPoints);
@@ -392,8 +406,9 @@ function animateCrossingSphere(progress) {
         createCrossingSphere();
     }
 
-    const maxSize = 10;
+    const maxSize = 1;  // Reduced max size for icosahedron
     const maxHeight = 1000;
+    const maxRotation = Math.PI * 4; // 2 full rotations
     
     // Grow in size
     const size = Math.min(progress * 2, 1) * maxSize;
@@ -402,6 +417,10 @@ function animateCrossingSphere(progress) {
     // Move up
     const height = Math.max(0, (progress - 0.5) * 2) * maxHeight;
     crossingSphere.position.z = crossingPoint.z + height;
+    
+    // Rotate around Z-axis
+    const rotation = progress * maxRotation;
+    crossingSphere.rotation.z = rotation;
     
     // Turn to red
     const color = new THREE.Color().setHSL(0, 1, 0.5).lerp(new THREE.Color(1, 0, 0), Math.max(0, (progress - 0.75) * 4));
@@ -413,18 +432,18 @@ function animateCrossingSphere(progress) {
 }
 
 function createCrossingSphere() {
-    const geometry = new THREE.SphereGeometry(10, 32, 32);
+    const geometry = new THREE.IcosahedronGeometry(100, 0);  // radius 10, detail 0
     const material = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         metalness: 0.5,
         roughness: 0.2,
+        flatShading: true  // This will give a more faceted look
     });
     crossingSphere = new THREE.Mesh(geometry, material);
     crossingSphere.position.copy(crossingPoint);
     crossingSphere.scale.set(0, 0, 0); // Start with zero scale
     scene.add(crossingSphere);
 }
-
 function animatePointsTransition(progress) {
     const { startPositions, smoothPositions, sphereSizes } = instancedMesh.userData;
     const matrix = new THREE.Matrix4();
