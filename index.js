@@ -206,7 +206,7 @@ function createYZPlane(points) {
             uniform float planeOpacity;
             varying vec2 vUv;
             void main() {
-                vec3 color = mix(colorBottom, colorTop, vUv.y);
+                vec3 color = mix(colorTop, colorBottom, vUv.x);
                 float fadeOpacity = sin(vUv.x * 3.14159) * planeOpacity;
                 gl_FragColor = vec4(color, fadeOpacity);
             }

@@ -18,6 +18,7 @@
 [*] fix the animation reverse issue
 [*] fix the sphere/icosa reversal
 [*] smooth plane appearance and dissappearance
+[*] quick plane color fix
 [ ] FIX CHROME CHOPPY ANIMATION - later
 [ ] check the text animation solutions
 [ ] check the scroll trigger to animation
