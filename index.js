@@ -345,26 +345,35 @@ function setupScrollAnimation() {
 }
 
 function animateInChunks(progress) {
-    const numChunks = 4; // Increased to 4 chunks
+    const numChunks = 6; // Increased to 6 chunks
     const chunkSize = 1 / numChunks;
 
     if (progress < chunkSize) {
+        // Chunk 1: Plane movement
         const planeProgress = progress / chunkSize;
         animatePlaneMovement(planeProgress);
     } else if (progress < chunkSize * 2) {
-        // First chunk: Animate grid lines
+        // Chunk 2: Grid lines
         const lineProgress = (progress - chunkSize) / chunkSize;
         animateGridLines(lineProgress);
     } else if (progress < chunkSize * 3) {
-        // Ensure grid lines are fully drawn
-        animateGridLines(1);
-        // New chunk: Animate crossing sphere
-        const sphereProgress = (progress - chunkSize * 2) / chunkSize;
-        animateCrossingSphere(sphereProgress);
+        // Chunk 3: Icosahedron rising
+        const riseProgress = (progress - chunkSize * 2) / chunkSize;
+        animateCrossingSphere(riseProgress, 'rise');
+    } else if (progress < chunkSize * 4) {
+        // Chunk 4: Icosahedron color transition
+        const colorProgress = (progress - chunkSize * 3) / chunkSize;
+        animateCrossingSphere(colorProgress, 'color');
+    } else if (progress < chunkSize * 5) {
+        // Chunk 5: Icosahedron returning
+        const returnProgress = (progress - chunkSize * 4) / chunkSize;
+        animateCrossingSphere(returnProgress, 'return');
     } else {
-        // Last chunk: Animate points transition
-        const pointProgress = (progress - chunkSize * 3) / chunkSize;
+        // Chunk 6: Points transition
+        const pointProgress = (progress - chunkSize * 5) / chunkSize;
         animatePointsTransition(pointProgress);
+        // Continue animating crossingSphere during points transition
+        animateCrossingSphere(pointProgress, 'fade');
     }
 }
 
@@ -401,47 +410,69 @@ function animateGridLines(progress) {
         animateLine(columnLines[1], totalPoints);
 }
 
-function animateCrossingSphere(progress) {
+function animateCrossingSphere(progress, phase) {
     if (!crossingSphere) {
         createCrossingSphere();
     }
 
-    const maxSize = 1;  // Reduced max size for icosahedron
+    const maxSize = 1;
     const maxHeight = 1000;
-    const maxRotation = Math.PI * 4; // 2 full rotations
-    
-    // Grow in size
-    const size = Math.min(progress * 2, 1) * maxSize;
-    crossingSphere.scale.set(size, size, size);
-    
-    // Move up
-    const height = Math.max(0, (progress - 0.5) * 2) * maxHeight;
-    crossingSphere.position.z = crossingPoint.z + height;
-    
-    // Rotate around Z-axis
-    const rotation = progress * maxRotation;
-    crossingSphere.rotation.z = rotation;
-    
-    // Turn to red
-    const color = new THREE.Color().setHSL(0, 1, 0.5).lerp(new THREE.Color(1, 0, 0), Math.max(0, (progress - 0.75) * 4));
-    crossingSphere.material.color.copy(color);
-    
-    // Fade out at the end
-    crossingSphere.material.opacity = progress < 0.9 ? 1 : 1 - ((progress - 0.9) * 10);
-    crossingSphere.material.transparent = progress > 0.9;
+    const maxRotation = Math.PI * 4;
+
+    switch (phase) {
+        case 'rise':
+            // Rising and growing
+            const size = progress * maxSize;
+            crossingSphere.scale.set(size, size, size);
+            crossingSphere.position.z = crossingPoint.z + progress * maxHeight;
+            crossingSphere.rotation.z = progress * maxRotation;
+            crossingSphere.material.color.setRGB(1, 0, 0); // Start with red
+            break;
+
+        case 'color':
+            // Color transition at the top
+            const color = new THREE.Color(1, 0, 0).lerp(new THREE.Color(0, 1, 1), progress);
+            crossingSphere.material.color.copy(color);
+            // Switch to detailed geometry
+            if (crossingSphere.geometry !== crossingSphere.userData.detailedGeometry) {
+                crossingSphere.geometry = crossingSphere.userData.detailedGeometry;
+            }
+            // Continue rotating
+            crossingSphere.rotation.z += 0.05; // Adjust rotation speed as needed
+            break;
+
+        case 'return':
+            // Returning to original position
+            const returnSize = maxSize * (1 - progress);
+            crossingSphere.scale.set(returnSize, returnSize, returnSize);
+            crossingSphere.position.z = crossingPoint.z + maxHeight * (1 - progress);
+            crossingSphere.rotation.z += 0.05; // Continue rotating
+            break;
+
+        case 'fade':
+            // Fading out during points transition
+            crossingSphere.material.opacity = 1 - progress;
+            crossingSphere.material.transparent = true;
+            break;
+    }
 }
 
 function createCrossingSphere() {
-    const geometry = new THREE.IcosahedronGeometry(100, 0);  // radius 10, detail 0
+    const baseGeometry = new THREE.IcosahedronGeometry(100, 0);  // radius 10, detail 0
+    const detailedGeometry = new THREE.IcosahedronGeometry(100, 2);  // radius 10, detail 2
     const material = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
+        color: 0xff0000, // Start with red
         metalness: 0.5,
         roughness: 0.2,
-        flatShading: true  // This will give a more faceted look
+        flatShading: true
     });
-    crossingSphere = new THREE.Mesh(geometry, material);
+    crossingSphere = new THREE.Mesh(baseGeometry, material);
     crossingSphere.position.copy(crossingPoint);
     crossingSphere.scale.set(0, 0, 0); // Start with zero scale
+    crossingSphere.userData = {
+        baseGeometry: baseGeometry,
+        detailedGeometry: detailedGeometry
+    };
     scene.add(crossingSphere);
 }
 function animatePointsTransition(progress) {
