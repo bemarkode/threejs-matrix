@@ -12,8 +12,9 @@
 [*] add a chunk with root sphere growing
 [*] rework the point transition
 [*] animate the colors transition
-[ ] red sphere into icosahedron
-[ ] spin icosahedron
-[ ] return to cyan and move back
+[*] red sphere into icosahedron
+[*] spin icosahedron
+[*] return to cyan and move back
+[ ] fix the animation reverse issue
 [ ] check the text animation solutions
 [ ] check the scroll trigger to animation

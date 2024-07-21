@@ -46,7 +46,6 @@ async function loadPoints(url) {
     }
 }
 
-
 function setupScene(points, smoothPoints) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
@@ -102,13 +101,6 @@ function setupScene(points, smoothPoints) {
 
 }
 
-/**
- * Creates an instanced mesh with spheres of varying sizes based on the given points.
- *
- * @param {Array<THREE.Vector3>} points - The points to create spheres at.
- * @param {Array<THREE.Vector3>} smoothPoints - The smoothed points.
- * @return {THREE.InstancedMesh} The created instanced mesh.
- */
 function createInstancedMesh(points, smoothPoints) {
     // Calculate distances and sphere sizes
     const distances = calculateDistances(points, smoothPoints);
@@ -154,40 +146,6 @@ function createInstancedMesh(points, smoothPoints) {
     instancedMesh.instanceColor.needsUpdate = true;
 
     return instancedMesh;
-}
-
-function createGeometry(points, smoothPoints) {
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(points.length * 3);
-    const smoothPositions = new Float32Array(smoothPoints.length * 3);
-    const startPositions = new Float32Array(points.length * 3);
-
-    points.forEach((point, i) => {
-        positions[i * 3] = point.x;
-        positions[i * 3 + 1] = point.y;
-        positions[i * 3 + 2] = point.z;
-        smoothPositions[i * 3] = smoothPoints[i].x;
-        smoothPositions[i * 3 + 1] = smoothPoints[i].y;
-        smoothPositions[i * 3 + 2] = smoothPoints[i].z;
-        startPositions[i * 3] = points[i].x;
-        startPositions[i * 3 + 1] = points[i].y;
-        startPositions[i * 3 + 2] = points[i].z;
-        center.add(point);
-    });
-
-    center.divideScalar(points.length);
-    points.forEach(point => {
-        radius = Math.max(radius, center.distanceTo(point));
-    });
-
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-    const colors = new Float32Array(points.length * 3);
-    colors.fill(1)
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.userData = { startPositions, smoothPositions };
-
-    return geometry;
 }
 
 function calculateGridDimensions(points) {
@@ -324,57 +282,91 @@ function createLine(points, color) {
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
 
-    ScrollTrigger.create({
-        trigger: container,
-        start: () => {
-            const containerRect = container.getBoundingClientRect();
-            return containerRect.top + containerRect.height - window.innerHeight;
-        },
-        end: () => {
-            const containerRect = container.getBoundingClientRect();
-            return containerRect.top + containerRect.height + window.innerHeight + 5000;
-        },
-        scrub: true,
-        pin: true,
-        anticipatePin: 0,
-        onUpdate: self => {
-            const progress = self.progress;
-            animateInChunks(progress);
-        },
+    const numChunks = 6;
+    const chunkSize = 1 / numChunks;
+
+    // Create a GSAP timeline
+    const tl = gsap.timeline({
+        scrollTrigger: {
+            trigger: container,
+            start: "top top",
+            end: "+=5000",
+            scrub: true,
+            pin: true,
+            anticipatePin: 0,
+        }
+    });
+
+    // Add tweens for each animation chunk
+    tl.to({}, {duration: chunkSize, onUpdate: () => animatePlaneMovement(tl.progress() / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animateGridLines((tl.progress() - chunkSize) / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 2) / chunkSize, 'rise')})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 3) / chunkSize, 'color')})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 4) / chunkSize, 'return')})
+      .to({}, {duration: chunkSize, onUpdate: () => {
+          animatePointsTransition((tl.progress() - chunkSize * 5) / chunkSize);
+          animateCrossingSphere((tl.progress() - chunkSize * 5) / chunkSize, 'fade');
+      }});
+
+    // Add onUpdate callback to handle resetting
+    tl.eventCallback("onUpdate", () => {
+        const progress = tl.progress();
+        if (progress < 0.01) {
+            resetAllAnimations();
+        }
     });
 }
 
-function animateInChunks(progress) {
-    const numChunks = 6; // Increased to 6 chunks
-    const chunkSize = 1 / numChunks;
+function resetAllAnimations() {
+    resetPlaneMovement();
+    resetGridLines();
+    resetCrossingSphere();
+    resetPointsTransition();
+}
 
-    if (progress < chunkSize) {
-        // Chunk 1: Plane movement
-        const planeProgress = progress / chunkSize;
-        animatePlaneMovement(planeProgress);
-    } else if (progress < chunkSize * 2) {
-        // Chunk 2: Grid lines
-        const lineProgress = (progress - chunkSize) / chunkSize;
-        animateGridLines(lineProgress);
-    } else if (progress < chunkSize * 3) {
-        // Chunk 3: Icosahedron rising
-        const riseProgress = (progress - chunkSize * 2) / chunkSize;
-        animateCrossingSphere(riseProgress, 'rise');
-    } else if (progress < chunkSize * 4) {
-        // Chunk 4: Icosahedron color transition
-        const colorProgress = (progress - chunkSize * 3) / chunkSize;
-        animateCrossingSphere(colorProgress, 'color');
-    } else if (progress < chunkSize * 5) {
-        // Chunk 5: Icosahedron returning
-        const returnProgress = (progress - chunkSize * 4) / chunkSize;
-        animateCrossingSphere(returnProgress, 'return');
-    } else {
-        // Chunk 6: Points transition
-        const pointProgress = (progress - chunkSize * 5) / chunkSize;
-        animatePointsTransition(pointProgress);
-        // Continue animating crossingSphere during points transition
-        animateCrossingSphere(pointProgress, 'fade');
+function resetPlaneMovement() {
+    if (yzPlane) {
+        const { startPositions } = instancedMesh.userData;
+        yzPlane.position.setX(startPositions[0].x);
+        yzPlane.updateMatrix();
+        updatePointColors(startPositions[0].x);
     }
+}
+
+function resetGridLines() {
+    if (rowLines && columnLines) {
+        rowLines.forEach(line => line.geometry.setDrawRange(0, 0));
+        columnLines.forEach(line => line.geometry.setDrawRange(0, 0));
+    }
+}
+
+function resetCrossingSphere() {
+    if (crossingSphere) {
+        crossingSphere.scale.set(0, 0, 0);
+        crossingSphere.position.copy(crossingPoint);
+        crossingSphere.material.opacity = 1;
+        crossingSphere.rotation.set(0, 0, 0);
+        crossingSphere.material.color.setRGB(1, 0, 0);
+        crossingSphere.geometry = crossingSphere.userData.baseGeometry;
+    }
+}
+
+function resetPointsTransition() {
+    const { startPositions, sphereSizes } = instancedMesh.userData;
+    const matrix = new THREE.Matrix4();
+
+    for (let i = 0; i < instancedMesh.count; i++) {
+        const startPos = startPositions[i];
+        const initialSize = sphereSizes[i];
+        
+        matrix.makeScale(initialSize, initialSize, initialSize);
+        matrix.setPosition(startPos);
+        instancedMesh.setMatrixAt(i, matrix);
+        instancedMesh.setColorAt(i, new THREE.Color(1, 1, 1));
+    }
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    instancedMesh.instanceColor.needsUpdate = true;
 }
 
 function animatePlaneMovement(progress) {
@@ -475,6 +467,7 @@ function createCrossingSphere() {
     };
     scene.add(crossingSphere);
 }
+
 function animatePointsTransition(progress) {
     const { startPositions, smoothPositions, sphereSizes } = instancedMesh.userData;
     const matrix = new THREE.Matrix4();
