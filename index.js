@@ -1,4 +1,6 @@
 import * as THREE from "https://unpkg.com/three@0.166.1/build/three.module.js";
+import { TextGeometry } from 'https://unpkg.com/three@0.166.1/examples/jsm/geometries/TextGeometry.js';
+import { FontLoader } from 'https://unpkg.com/three@0.166.1/examples/jsm/loaders/FontLoader.js';
 
 const container = document.getElementById("container");
 
@@ -9,6 +11,7 @@ let gridDimensions = null;
 let distances;
 let rowOffset, columnOffset;
 let crossingSphere;
+let textMesh;
 
 const gradientColors = [
     { color: new THREE.Color(0x00FFFF), position: 0 },    // Cyan
@@ -21,6 +24,7 @@ async function init() {
     setupScene(points, smoothPoints);
     createGridLines(points, 23, 26);
     createCrossingSphere(crossingPoint);
+    await createAnalysisText();
     setupScrollAnimation();
     initializePlane();
 
@@ -212,6 +216,7 @@ function createYZPlane(points) {
             }
         `,
         transparent: true,
+        depthWrite: false,
         side: THREE.DoubleSide
     });
 
@@ -221,6 +226,8 @@ function createYZPlane(points) {
     // Position the plane
     planeMesh.position.set(points[0].x, center.y, center.z);
     planeMesh.rotation.y = Math.PI / 2;
+
+    planeMesh.renderOrder = 0;
 
     return planeMesh;
 }
@@ -292,17 +299,29 @@ function setupScrollAnimation() {
     const tl = gsap.timeline({
         scrollTrigger: {
             trigger: container,
-            start: "top top",
-            end: "+=5000",
+            start: "bottom bottom",
+            end: "+=15000",
             scrub: true,
             pin: true,
             anticipatePin: 0,
         }
     });
 
-    tl.to({}, {duration: chunkSize, onUpdate: () => animatePlaneFadeIn(tl.progress() / chunkSize)})
-      .to({}, {duration: chunkSize, onUpdate: () => animatePlaneMovement((tl.progress() - chunkSize) / chunkSize)})
-      .to({}, {duration: chunkSize, onUpdate: () => animatePlaneFadeOut((tl.progress() - chunkSize * 2) / chunkSize)})
+    tl.to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = tl.progress() / chunkSize;
+        animatePlaneFadeIn(progress);
+        animateTextFadeInAndRotate(Math.max(0, Math.min(1, (progress - 0.5) * 2)));
+    }})
+      .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize) / chunkSize;
+        animatePlaneMovement(progress);
+        animateTextHold();
+      }})
+      .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
+        animatePlaneFadeOut(progress);
+        animateTextFadeOutAndRotate(Math.max(0, Math.min(1, progress * 2)));
+    }})
       .to({}, {duration: chunkSize, onUpdate: () => animateGridLines((tl.progress() - chunkSize * 3) / chunkSize)})
       .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 4) / chunkSize, 'rise')})
       .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 5) / chunkSize, 'color')})
@@ -312,10 +331,13 @@ function setupScrollAnimation() {
           animateCrossingSphere((tl.progress() - chunkSize * 7) / chunkSize, 'fade');
       }});
 
-    tl.eventCallback("onUpdate", () => {
+
+      tl.eventCallback("onUpdate", () => {
         const progress = tl.progress();
         if (progress < 0.01) {
             resetAllAnimations();
+        } else if (progress > 0.99) {
+            completeAllAnimations();
         }
     });
 }
@@ -357,6 +379,18 @@ function resetAllAnimations() {
     resetGridLines();
     resetCrossingSphere();
     resetPointsTransition();
+    if (textMesh) {
+        textMesh.material.opacity = 0;
+        textMesh.rotation.x = -Math.PI / 2;
+    }
+}
+
+function completeAllAnimations() {
+    // ... (other completion code if needed)
+    if (textMesh) {
+        textMesh.material.opacity = 0;
+        textMesh.rotation.x = Math.PI / 2;
+    }
 }
 
 function resetPlaneMovement() {
@@ -368,6 +402,29 @@ function resetPlaneMovement() {
         updatePointColors(startPositions[0].x);
     }
 }
+
+function animateTextFadeInAndRotate(progress) {
+    if (textMesh) {
+        textMesh.material.opacity = Math.min(progress * 2, 1); // Fade in quickly
+        textMesh.rotation.x =  Math.PI / 2 * progress; // Rotate from -90 to 0 degrees
+    }
+}
+
+function animateTextHold(progress) {
+    if (textMesh) {
+        textMesh.material.opacity = 1; // Keep fully opaque
+        textMesh.rotation.x = Math.PI / 2; // Keep at 0 degrees (facing camera)
+    }
+}
+
+function animateTextFadeOutAndRotate(progress) {
+    if (textMesh) {
+        textMesh.material.opacity = 1 - progress; // Fade out quickly
+        textMesh.rotation.x = Math.PI / 2 * progress + Math.PI / 2; // Rotate from 0 to 90 degrees
+    }
+}
+
+
 
 function initializePlane() {
     if (yzPlane) {
@@ -517,6 +574,41 @@ function createCrossingSphere() {
         detailedGeometry: detailedGeometry
     };
     scene.add(crossingSphere);
+}
+
+async function createAnalysisText() {
+    const loader = new FontLoader();
+    const font = await new Promise((resolve, reject) => {
+        loader.load('https://components.ai/api/v1/typefaces/rubik/normal/600', resolve, undefined, reject);
+    });
+
+    const textGeometry = new TextGeometry('analysis...', {
+        font: font,
+        size: 100,
+        depth: 5,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 2,
+        bevelSize: 1,
+        bevelOffset: 0,
+        bevelSegments: 1
+    });
+
+    const textMaterial = new THREE.MeshPhongMaterial({
+        color: 0x777777,
+        transparent: true,
+        opacity: 0
+    });
+
+    textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textGeometry.computeBoundingBox();
+    const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+    textMesh.position.set(center.x, center.y, center.z + 1500);
+    textMesh.rotation.x = -Math.PI / 2; // Start rotated 90 degrees
+
+    textMesh.renderOrder = 1;
+
+    scene.add(textMesh);
 }
 
 function animatePointsTransition(progress) {

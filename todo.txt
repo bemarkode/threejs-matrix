@@ -8,7 +8,6 @@
 [*] add phong material to spheres
 [*] add size by distance
 [*] refactor and update map
-[ ] modify the line appearance - later
 [*] add a chunk with root sphere growing
 [*] rework the point transition
 [*] animate the colors transition
@@ -19,6 +18,6 @@
 [*] fix the sphere/icosa reversal
 [*] smooth plane appearance and dissappearance
 [*] quick plane color fix
-[ ] FIX CHROME CHOPPY ANIMATION - later
-[ ] check the text animation solutions
+[*] check the text animation solutions
 [ ] check the scroll trigger to animation
+[ ] modify the line appearance - later
