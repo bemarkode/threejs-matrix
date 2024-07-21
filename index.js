@@ -22,6 +22,7 @@ async function init() {
     createGridLines(points, 23, 26);
     createCrossingSphere(crossingPoint);
     setupScrollAnimation();
+    initializePlane();
 
 
     
@@ -183,13 +184,14 @@ function createYZPlane(points) {
     const { width, length } = gridDimensions;
 
     // Create a plane geometry
-    const planeGeometry = new THREE.PlaneGeometry(width, width, 1, 32);  // Increased vertical segments for smoother gradient
+    const planeGeometry = new THREE.PlaneGeometry(width, width, 1, 32);
 
     // Create custom shader material
     const planeMaterial = new THREE.ShaderMaterial({
         uniforms: {
             colorBottom: { value: new THREE.Color(gradientColors[0].color) },
-            colorTop: { value: new THREE.Color(gradientColors[gradientColors.length - 1].color) }
+            colorTop: { value: new THREE.Color(gradientColors[gradientColors.length - 1].color) },
+            planeOpacity: { value: 0 } // Start with opacity 0
         },
         vertexShader: `
             varying vec2 vUv;
@@ -201,11 +203,12 @@ function createYZPlane(points) {
         fragmentShader: `
             uniform vec3 colorBottom;
             uniform vec3 colorTop;
+            uniform float planeOpacity;
             varying vec2 vUv;
             void main() {
-                vec3 color = mix(colorTop, colorBottom, vUv.x);
-                float opacity = sin(vUv.x * 3.14159);
-                gl_FragColor = vec4(color, opacity * 0.5);  // Adjust the 0.5 to control overall opacity
+                vec3 color = mix(colorBottom, colorTop, vUv.y);
+                float fadeOpacity = sin(vUv.x * 3.14159) * planeOpacity;
+                gl_FragColor = vec4(color, fadeOpacity);
             }
         `,
         transparent: true,
@@ -221,6 +224,7 @@ function createYZPlane(points) {
 
     return planeMesh;
 }
+
 
 function adjustCamera() {
     camera.position.set(center.x, center.y - radius, center.z + radius / 4);
@@ -282,10 +286,9 @@ function createLine(points, color) {
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
 
-    const numChunks = 6;
+    const numChunks = 8; // Increased to accommodate fade effects
     const chunkSize = 1 / numChunks;
 
-    // Create a GSAP timeline
     const tl = gsap.timeline({
         scrollTrigger: {
             trigger: container,
@@ -297,24 +300,56 @@ function setupScrollAnimation() {
         }
     });
 
-    // Add tweens for each animation chunk
-    tl.to({}, {duration: chunkSize, onUpdate: () => animatePlaneMovement(tl.progress() / chunkSize)})
-      .to({}, {duration: chunkSize, onUpdate: () => animateGridLines((tl.progress() - chunkSize) / chunkSize)})
-      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 2) / chunkSize, 'rise')})
-      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 3) / chunkSize, 'color')})
-      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 4) / chunkSize, 'return')})
+    tl.to({}, {duration: chunkSize, onUpdate: () => animatePlaneFadeIn(tl.progress() / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animatePlaneMovement((tl.progress() - chunkSize) / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animatePlaneFadeOut((tl.progress() - chunkSize * 2) / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animateGridLines((tl.progress() - chunkSize * 3) / chunkSize)})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 4) / chunkSize, 'rise')})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 5) / chunkSize, 'color')})
+      .to({}, {duration: chunkSize, onUpdate: () => animateCrossingSphere((tl.progress() - chunkSize * 6) / chunkSize, 'return')})
       .to({}, {duration: chunkSize, onUpdate: () => {
-          animatePointsTransition((tl.progress() - chunkSize * 5) / chunkSize);
-          animateCrossingSphere((tl.progress() - chunkSize * 5) / chunkSize, 'fade');
+          animatePointsTransition((tl.progress() - chunkSize * 7) / chunkSize);
+          animateCrossingSphere((tl.progress() - chunkSize * 7) / chunkSize, 'fade');
       }});
 
-    // Add onUpdate callback to handle resetting
     tl.eventCallback("onUpdate", () => {
         const progress = tl.progress();
         if (progress < 0.01) {
             resetAllAnimations();
         }
     });
+}
+
+function animatePlaneFadeIn(progress) {
+    if (!yzPlane) {
+        console.log("YZ Plane not initialized");
+        return;
+    }
+
+    const opacity = Math.min(progress * 1, 0.5); // Fade in during the first half of the chunk
+    yzPlane.material.uniforms.planeOpacity.value = opacity;
+
+    // Ensure the plane is in its starting position
+    const { startPositions } = instancedMesh.userData;
+    yzPlane.position.setX(startPositions[0].x);
+    yzPlane.updateMatrix();
+}
+
+function animatePlaneFadeOut(progress) {
+    if (!yzPlane) {
+        console.log("YZ Plane not initialized");
+        return;
+    }
+
+    const opacity = 0.5 - Math.min(progress * 1, 0.5); // Fade out during the first half of the chunk
+    yzPlane.material.uniforms.planeOpacity.value = opacity;
+
+    // Keep the plane in its end position
+    const { width, length } = gridDimensions;
+    const { startPositions } = instancedMesh.userData;
+    const endX = startPositions[0].x + length;
+    yzPlane.position.setX(endX);
+    yzPlane.updateMatrix();
 }
 
 function resetAllAnimations() {
@@ -328,8 +363,16 @@ function resetPlaneMovement() {
     if (yzPlane) {
         const { startPositions } = instancedMesh.userData;
         yzPlane.position.setX(startPositions[0].x);
+        yzPlane.material.uniforms.planeOpacity.value = 0;
         yzPlane.updateMatrix();
         updatePointColors(startPositions[0].x);
+    }
+}
+
+function initializePlane() {
+    if (yzPlane) {
+        yzPlane.material.uniforms.planeOpacity.value = 0;
+        yzPlane.material.needsUpdate = true;
     }
 }
 
@@ -379,7 +422,7 @@ function animatePlaneMovement(progress) {
     const { width, length } = gridDimensions;
     const { startPositions } = instancedMesh.userData;
     const startX = startPositions[0].x;
-    const endX = startX + length;  // Use the actual grid width
+    const endX = startX + length;
 
     const newX = lerp(startX, endX, progress);
 
