@@ -18,6 +18,10 @@
 [*] fix the sphere/icosa reversal
 [*] smooth plane appearance and dissappearance
 [*] quick plane color fix
-[*] check the text animation solutions
+[*] check the text animation solutions - more later
+[*] add root cause traceback
+[*] refactor text animation - DRY
+[ ] refactor function positions
+[ ] perhaps use scaled spheres instad of a grid line animation
 [ ] check the scroll trigger to animation
 [ ] modify the line appearance - later
