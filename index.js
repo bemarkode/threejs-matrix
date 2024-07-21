@@ -348,6 +348,7 @@ function resetCrossingSphere() {
         crossingSphere.rotation.set(0, 0, 0);
         crossingSphere.material.color.setRGB(1, 0, 0);
         crossingSphere.geometry = crossingSphere.userData.baseGeometry;
+        crossingSphere.material.transparent = false;
     }
 }
 
@@ -419,6 +420,11 @@ function animateCrossingSphere(progress, phase) {
             crossingSphere.position.z = crossingPoint.z + progress * maxHeight;
             crossingSphere.rotation.z = progress * maxRotation;
             crossingSphere.material.color.setRGB(1, 0, 0); // Start with red
+            
+            // Ensure we're using the base geometry during the rise phase
+            if (crossingSphere.geometry !== crossingSphere.userData.baseGeometry) {
+                crossingSphere.geometry = crossingSphere.userData.baseGeometry;
+            }
             break;
 
         case 'color':
@@ -426,8 +432,10 @@ function animateCrossingSphere(progress, phase) {
             const color = new THREE.Color(1, 0, 0).lerp(new THREE.Color(0, 1, 1), progress);
             crossingSphere.material.color.copy(color);
             // Switch to detailed geometry
-            if (crossingSphere.geometry !== crossingSphere.userData.detailedGeometry) {
+            if (progress > 0.5 && crossingSphere.geometry !== crossingSphere.userData.detailedGeometry) {
                 crossingSphere.geometry = crossingSphere.userData.detailedGeometry;
+            } else if (progress <= 0.5 && crossingSphere.geometry !== crossingSphere.userData.baseGeometry) {
+                crossingSphere.geometry = crossingSphere.userData.baseGeometry;
             }
             // Continue rotating
             crossingSphere.rotation.z += 0.05; // Adjust rotation speed as needed
