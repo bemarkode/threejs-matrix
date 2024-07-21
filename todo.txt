@@ -21,7 +21,7 @@
 [*] check the text animation solutions - more later
 [*] add root cause traceback
 [*] refactor text animation - DRY
-[ ] refactor function positions
+[] refactor function positions
 [ ] perhaps use scaled spheres instad of a grid line animation
 [ ] check the scroll trigger to animation
 [ ] modify the line appearance - later
