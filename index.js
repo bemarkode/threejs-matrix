@@ -5,13 +5,15 @@ import { FontLoader } from 'https://unpkg.com/three@0.166.1/examples/jsm/loaders
 const container = document.getElementById("container");
 
 let scene, camera, renderer, instancedMesh, center, radius;
-let rowLines, columnLines, yzPlane, crossingPoint;
+let yzPlane, crossingPoint;
 let gridDimensions = null;
 let distances;
-let rowOffset, columnOffset;
 let crossingSphere;
 let textMeshes = {};
 let fontPromise;
+let rowSpheresIndices = [];
+let columnSpheresIndices = [];
+let crossingGridCoords;
 
 const gradientColors = [
     { color: new THREE.Color(0x00FFFF), position: 0 },    // Cyan
@@ -22,13 +24,11 @@ async function init() {
     const points = await loadPoints("points_cleaned.txt");
     const smoothPoints = await loadPoints("original_points_cleaned.txt");
 
-    setupScene(points, smoothPoints);
-    createGridLines(points, 23, 26);
-    createCrossingSphere(crossingPoint);
+    calculateGlobalValues(points,smoothPoints);
+    setupScene();
+    createGeometry(points, smoothPoints);
+    adjustCamera();
     setupScrollAnimation();
-    initializePlane();
-
-    distances = calculateDistances(points, smoothPoints);
 }
 
 async function loadPoints(url) {
@@ -47,7 +47,13 @@ async function loadPoints(url) {
     }
 }
 
-function setupScene(points, smoothPoints) {
+function calculateGlobalValues(points, smoothPoints) {
+    calculateGridDimensions(points);
+    distances = calculateDistances(points, smoothPoints);
+    identifyGridSpheres(points, 23, 26);
+}
+
+function setupScene() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     renderer = new THREE.WebGLRenderer({
@@ -62,27 +68,15 @@ function setupScene(points, smoothPoints) {
     renderer.setClearColor(new THREE.Color(0x000000), 0); // background opacity 0
     renderer.setSize(container.offsetWidth, container.offsetHeight);
     
-    // Enable shadow mapping if you're using shadows
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     camera.aspect = container.offsetWidth / container.offsetHeight;
     camera.updateProjectionMatrix();
     container.appendChild(renderer.domElement);
-
     center = new THREE.Vector3();
     radius = 0;
 
-    instancedMesh = createInstancedMesh(points, smoothPoints);
-    scene.add(instancedMesh);
-
-    calculateGridDimensions(points);
-    yzPlane = createYZPlane(points);
-    scene.add(yzPlane);
-
-    adjustCamera();
-
-    // Add ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
@@ -96,6 +90,99 @@ function setupScene(points, smoothPoints) {
     window.addEventListener('resize', onWindowResize, false);
 
     animate();
+}
+
+function createGeometry(points, smoothPoints) {
+    instancedMesh = createInstancedMesh(points, smoothPoints);
+    scene.add(instancedMesh);
+    yzPlane = createYZPlane(points);
+    scene.add(yzPlane);
+    createCrossingSphere(crossingPoint);
+    initializePlane();   
+}
+
+function adjustCamera() {
+    camera.position.set(center.x, center.y - radius, center.z + radius / 4);
+    camera.lookAt(center);
+}
+
+function setupScrollAnimation() {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const numChunks = 9; // Increased to accommodate more text animations
+    const chunkSize = 1 / numChunks;
+
+    const tl = gsap.timeline({
+        scrollTrigger: {
+            trigger: container,
+            start: "bottom bottom",
+            end: "+=15000",
+            scrub: true,
+            pin: true,
+            anticipatePin: 0,
+        }
+    });
+
+    // Create all text meshes at the start
+    createText("Analysis", "analysis");
+    createText("Root cause traceback", "traceback");
+    createText("Correction", "correction");
+    createText("Final result", "final");
+
+    tl.to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = tl.progress() / chunkSize;
+        animatePlaneFadeIn(progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize) / chunkSize;
+        animatePlaneMovement(progress);
+        animateTextFadeIn("analysis", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
+        animatePlaneFadeOut(progress);
+        animateTextFadeOut("analysis", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 3) / chunkSize;
+        animateSpheresScale(progress);
+        animateTextFadeIn("traceback", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 4) / chunkSize;
+        animateCrossingSphere(progress, 'rise');
+        animateTextFadeOut("traceback", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 5) / chunkSize;
+        animateCrossingSphere(progress, 'color');
+        animateTextFadeIn("correction", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 6) / chunkSize;
+        animateCrossingSphere(progress, 'return');
+        animateTextFadeOut("correction", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 7) / chunkSize;
+        animatePointsTransition(progress);
+        animateCrossingSphere(progress, 'fade');
+        animateTextFadeIn("final", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 8) / chunkSize;
+        animateTextFadeOut("final", progress);
+    }});
+
+
+    tl.eventCallback("onUpdate", () => {
+        const progress = tl.progress();
+        if (progress < 0.01) {
+            resetAllAnimations();
+        } else if (progress > 0.99) {
+            completeAllAnimations();
+        }
+    });
 }
 
 function createInstancedMesh(points, smoothPoints) {
@@ -193,7 +280,7 @@ function calculateGridDimensions(points) {
         gridDimensions = { width: 5000, length: 5000 };
         console.log("Using default grid dimensions:", gridDimensions);
     }
-
+    
     return gridDimensions;
 }
 
@@ -245,11 +332,6 @@ function createYZPlane(points) {
     return planeMesh;
 }
 
-function adjustCamera() {
-    camera.position.set(center.x, center.y - radius, center.z + radius / 4);
-    camera.lookAt(center);
-}
-
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
@@ -261,37 +343,24 @@ function animate() {
     if (crossingSphere) crossingSphere.material.needsUpdate = true;
 }
 
-function createGridLines(points, rowIndex, columnIndex) {
+function identifyGridSpheres(points, rowIndex, columnIndex) {
     const gridSize = 101;
-    crossingPoint = new THREE.Vector3(
-        points[rowIndex * gridSize + columnIndex].x,
-        points[rowIndex * gridSize + columnIndex].y,
-        points[rowIndex * gridSize + columnIndex].z
-    );
+    const crossingPointIndex = rowIndex * gridSize + columnIndex;
+    crossingPoint = points[crossingPointIndex].clone();
 
-    // Create row lines
-    const rowPoints = points.slice(rowIndex * gridSize, (rowIndex + 1) * gridSize);
-    rowLines = [
-        createLine(rowPoints.slice(0, columnIndex + 1), 0xff0000),
-        createLine(rowPoints.slice(columnIndex).reverse(), 0xff0000)
-    ];
+    // Store grid coordinates separately
+    crossingGridCoords = new THREE.Vector2(columnIndex, rowIndex);
 
-    // Create column lines
-    const columnPoints = [];
-    for (let i = 0; i < gridSize; i++) {
-        columnPoints.push(points[i * gridSize + columnIndex]);
-    }
-    columnLines = [
-        createLine(columnPoints.slice(0, rowIndex + 1), 0x00ff00),
-        createLine(columnPoints.slice(rowIndex).reverse(), 0x00ff00)
-    ];
+    // Identify row spheres
+    rowSpheresIndices = Array.from({ length: gridSize }, (_, i) => rowIndex * gridSize + i);
 
-    // Add lines to the scene
-    rowLines.forEach(line => scene.add(line));
-    columnLines.forEach(line => scene.add(line));
-    rowOffset = gridSize - rowIndex;
-    columnOffset = gridSize - columnIndex;
+    // Identify column spheres
+    columnSpheresIndices = Array.from({ length: gridSize }, (_, i) => i * gridSize + columnIndex);
 
+    console.log("Crossing Point 3D:", crossingPoint);
+    console.log("Crossing Grid Coordinates:", crossingGridCoords);
+    console.log("Row Indices:", rowSpheresIndices);
+    console.log("Column Indices:", columnSpheresIndices);
 }
 
 function createLine(points, color) {
@@ -303,8 +372,8 @@ function createLine(points, color) {
 }
 
 function createCrossingSphere() {
-    const baseGeometry = new THREE.IcosahedronGeometry(100, 0);  // radius 10, detail 0
-    const detailedGeometry = new THREE.IcosahedronGeometry(100, 2);  // radius 10, detail 2
+    const baseGeometry = new THREE.IcosahedronGeometry(100, 0);  // radius 100, detail 0
+    const detailedGeometry = new THREE.IcosahedronGeometry(100, 2);  // radius 100, detail 2
     const material = new THREE.MeshStandardMaterial({
         color: 0xff0000, // Start with red
         metalness: 0.5,
@@ -312,92 +381,18 @@ function createCrossingSphere() {
         flatShading: true
     });
     crossingSphere = new THREE.Mesh(baseGeometry, material);
+    
+    // Use the actual 3D coordinates for the crossing point
     crossingSphere.position.copy(crossingPoint);
+    
     crossingSphere.scale.set(0, 0, 0); // Start with zero scale
     crossingSphere.userData = {
         baseGeometry: baseGeometry,
         detailedGeometry: detailedGeometry
     };
     scene.add(crossingSphere);
-}
-
-function setupScrollAnimation() {
-    gsap.registerPlugin(ScrollTrigger);
-
-    const numChunks = 9; // Increased to accommodate more text animations
-    const chunkSize = 1 / numChunks;
-
-    const tl = gsap.timeline({
-        scrollTrigger: {
-            trigger: container,
-            start: "bottom bottom",
-            end: "+=15000",
-            scrub: true,
-            pin: true,
-            anticipatePin: 0,
-        }
-    });
-
-    // Create all text meshes at the start
-    createText("Analysis", "analysis");
-    createText("Root cause traceback", "traceback");
-    createText("Correction", "correction");
-    createText("Final result", "final");
-
-    tl.to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = tl.progress() / chunkSize;
-        animatePlaneFadeIn(progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize) / chunkSize;
-        animatePlaneMovement(progress);
-        animateTextFadeIn("analysis", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
-        animatePlaneFadeOut(progress);
-        animateTextFadeOut("analysis", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 3) / chunkSize;
-        animateGridLines(progress);
-        animateTextFadeIn("traceback", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 4) / chunkSize;
-        animateCrossingSphere(progress, 'rise');
-        animateTextFadeOut("traceback", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 5) / chunkSize;
-        animateCrossingSphere(progress, 'color');
-        animateTextFadeIn("correction", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 6) / chunkSize;
-        animateCrossingSphere(progress, 'return');
-        animateTextFadeOut("correction", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 7) / chunkSize;
-        animatePointsTransition(progress);
-        animateCrossingSphere(progress, 'fade');
-        animateTextFadeIn("final", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 8) / chunkSize;
-        animateTextFadeOut("final", progress);
-    }});
-
-
-    tl.eventCallback("onUpdate", () => {
-        const progress = tl.progress();
-        if (progress < 0.01) {
-            resetAllAnimations();
-        } else if (progress > 0.99) {
-            completeAllAnimations();
-        }
-    });
+    
+    console.log("Crossing Sphere Position:", crossingSphere.position);
 }
 
 async function createText(text, identifier) {
@@ -552,18 +547,55 @@ function animateTextFadeOut(identifier, progress) {
     }
 }
 
-function animateGridLines(progress) {
-    const totalPoints = 101;
+function animateSpheresScale(progress) {
+    const totalSpheres = 101;
+    const matrix = new THREE.Matrix4();
+    const maxScaleFactor = 2; // Adjust this value to change the maximum scale
 
-    function animateLine(line, maxPoints) {
-        const pointsToDraw = lerp(0, maxPoints, progress);                 
-        line.geometry.setDrawRange(0, pointsToDraw);
+    function scaleSphereSegment(indices, maxSpheres, reverse = false) {
+        const spheresToScale = Math.ceil(lerp(0, maxSpheres, progress));
+        
+        indices.forEach((index, i) => {
+            const sphereIndex = reverse ? maxSpheres - 1 - i : i;
+            instancedMesh.getMatrixAt(index, matrix);
+            const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+            const scale = new THREE.Vector3();
+            matrix.decompose(position, quaternion, scale);
+
+            const initialSize = instancedMesh.userData.sphereSizes[index];
+
+            if (sphereIndex < spheresToScale) {
+                // Calculate local progress so that it increases as we approach the crossing point
+                const localProgress = reverse 
+                    ? 1 - (spheresToScale - sphereIndex) / spheresToScale 
+                    : sphereIndex / spheresToScale;
+                
+                const scaleFactor = lerp(1, maxScaleFactor, localProgress);
+                const newSize = initialSize * scaleFactor;
+                scale.set(newSize, newSize, newSize);
+            } else {
+                scale.set(initialSize, initialSize, initialSize);
+            }
+
+            matrix.compose(position, quaternion, scale);
+            instancedMesh.setMatrixAt(index, matrix);
+        });
     }
 
-        animateLine(rowLines[0], totalPoints - rowOffset);
-        animateLine(rowLines[1], totalPoints);
-        animateLine(columnLines[0], totalPoints - columnOffset);
-        animateLine(columnLines[1], totalPoints);
+    // Use grid coordinates for animation
+    const rowCrossingIndex = crossingGridCoords.x;
+    const columnCrossingIndex = crossingGridCoords.y;
+
+    // Animate row spheres
+    scaleSphereSegment(rowSpheresIndices.slice(0, rowCrossingIndex + 1), rowCrossingIndex + 1);
+    scaleSphereSegment(rowSpheresIndices.slice(rowCrossingIndex), totalSpheres - rowCrossingIndex, true);
+
+    // Animate column spheres
+    scaleSphereSegment(columnSpheresIndices.slice(0, columnCrossingIndex + 1), columnCrossingIndex + 1);
+    scaleSphereSegment(columnSpheresIndices.slice(columnCrossingIndex), totalSpheres - columnCrossingIndex, true);
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
 }
 
 function animateCrossingSphere(progress, phase) {
@@ -679,7 +711,7 @@ function animatePointsTransition(progress) {
 
 function resetAllAnimations() {
     resetPlaneMovement();
-    resetGridLines();
+    resetSphereScales(); 
     resetCrossingSphere();
     resetPointsTransition();
     Object.values(textMeshes).forEach(mesh => {
@@ -697,11 +729,15 @@ function resetPlaneMovement() {
     }
 }
 
-function resetGridLines() {
-    if (rowLines && columnLines) {
-        rowLines.forEach(line => line.geometry.setDrawRange(0, 0));
-        columnLines.forEach(line => line.geometry.setDrawRange(0, 0));
-    }
+function resetSphereScales() {
+    const matrix = new THREE.Matrix4();
+    const baseScale = new THREE.Vector3(1, 1, 1);
+    [...rowSpheresIndices, ...columnSpheresIndices].forEach(index => {
+        instancedMesh.getMatrixAt(index, matrix);
+        matrix.scale(baseScale);
+        instancedMesh.setMatrixAt(index, matrix);
+    });
+    instancedMesh.instanceMatrix.needsUpdate = true;
 }
 
 function resetCrossingSphere() {
