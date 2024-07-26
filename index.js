@@ -5,7 +5,7 @@ import { FontLoader } from 'https://unpkg.com/three@0.166.1/examples/jsm/loaders
 const container = document.getElementById("container");
 
 let scene, camera, renderer, instancedMesh, center, radius;
-let yzPlane, crossingPoint;
+let yzPlane, xzPlane, crossingPoint;
 let gridDimensions = null;
 let distances;
 let crossingSphere;
@@ -14,6 +14,7 @@ let fontPromise;
 let rowSpheresIndices = [];
 let columnSpheresIndices = [];
 let crossingGridCoords;
+let startingYForPlane = 0;
 
 const gradientColors = [
     { color: new THREE.Color(0x00FFFF), position: 0 },    // Cyan
@@ -96,7 +97,9 @@ function createGeometry(points, smoothPoints) {
     instancedMesh = createInstancedMesh(points, smoothPoints);
     scene.add(instancedMesh);
     yzPlane = createYZPlane(points);
+    xzPlane = createXZPlane(points);
     scene.add(yzPlane);
+    scene.add(xzPlane);
     createCrossingSphere(crossingPoint);
     initializePlane();   
 }
@@ -109,7 +112,7 @@ function adjustCamera() {
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
 
-    const numChunks = 9; // Increased to accommodate more text animations
+    const numChunks = 10; // Increased to accommodate more text animations
     const chunkSize = 1 / numChunks;
 
     const tl = gsap.timeline({
@@ -130,47 +133,51 @@ function setupScrollAnimation() {
     createText("Final result", "final");
 
     tl.to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = tl.progress() / chunkSize;
-        animatePlaneFadeIn(progress);
+        const progress = tl.progress() / (chunkSize);
+        animateGridAppearance(progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
         const progress = (tl.progress() - chunkSize) / chunkSize;
+        animatePlaneFadeIn(progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
         animatePlaneMovement(progress);
         animateTextFadeIn("analysis", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 3) / chunkSize;
         animatePlaneFadeOut(progress);
         animateTextFadeOut("analysis", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 3) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 4) / chunkSize;
         animateSpheresScale(progress);
         animateTextFadeIn("traceback", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 4) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 5) / chunkSize;
         animateCrossingSphere(progress, 'rise');
         animateTextFadeOut("traceback", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 5) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 6) / chunkSize;
         animateCrossingSphere(progress, 'color');
         animateTextFadeIn("correction", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 6) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 7) / chunkSize;
         animateCrossingSphere(progress, 'return');
         animateTextFadeOut("correction", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 7) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 8) / chunkSize;
         animatePointsTransition(progress);
         animateCrossingSphere(progress, 'fade');
         animateTextFadeIn("final", progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 8) / chunkSize;
+        const progress = (tl.progress() - chunkSize * 9) / chunkSize;
         animateTextFadeOut("final", progress);
     }});
 
@@ -185,6 +192,15 @@ function setupScrollAnimation() {
     });
 }
 
+function animateGridAppearance(progress) {
+    
+    const { width, length } = gridDimensions;
+    const mappedY = startingYForPlane + progress * (width) - 20;
+    xzPlane.position.set(xzPlane.position.x, mappedY, 0);
+}
+
+
+
 function createInstancedMesh(points, smoothPoints) {
     // Calculate distances and sphere sizes
     const distances = calculateDistances(points, smoothPoints);
@@ -198,6 +214,7 @@ function createInstancedMesh(points, smoothPoints) {
         metalness: 0.5,
         roughness: 0.2,
         emissive: 0x000000,
+
     });
     
     const instancedMesh = new THREE.InstancedMesh(sphereGeometry, material, points.length);
@@ -329,6 +346,17 @@ function createYZPlane(points) {
 
     planeMesh.renderOrder = 0;
 
+    return planeMesh;
+}
+
+function createXZPlane(points) {
+    const { width, length } = gridDimensions;
+    const planeGeometry = new THREE.PlaneGeometry(length, length, 1, 32);
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+    planeMesh.position.set(points[0].x + length/2, points[100].y - 20, center.z);
+    planeMesh.rotation.x = Math.PI / 2;
+    startingYForPlane = points[100].y;
     return planeMesh;
 }
 
@@ -718,6 +746,8 @@ function resetAllAnimations() {
         mesh.material.opacity = 0;
     });
 }
+
+
 
 function resetPlaneMovement() {
     if (yzPlane) {
