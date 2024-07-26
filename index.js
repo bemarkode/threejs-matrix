@@ -112,7 +112,7 @@ function adjustCamera() {
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
 
-    const numChunks = 10; // Increased to accommodate more text animations
+    const numChunks = 11; // Increased to accommodate more text animations
     const chunkSize = 1 / numChunks;
 
     const tl = gsap.timeline({
@@ -179,6 +179,10 @@ function setupScrollAnimation() {
     .to({}, {duration: chunkSize, onUpdate: () => {
         const progress = (tl.progress() - chunkSize * 9) / chunkSize;
         animateTextFadeOut("final", progress);
+    }})
+    .to({}, {duration: chunkSize, onUpdate: () => {
+        const progress = (tl.progress() - chunkSize * 10) / chunkSize;
+        animateGridAppearanceBack(progress);
     }});
 
 
@@ -199,7 +203,12 @@ function animateGridAppearance(progress) {
     xzPlane.position.set(xzPlane.position.x, mappedY, 0);
 }
 
-
+function animateGridAppearanceBack(progress) {
+    
+    const { width, length } = gridDimensions;
+    const mappedY = startingYForPlane + (width) - progress * (width) - 20;
+    xzPlane.position.set(xzPlane.position.x, mappedY, 0);
+}
 
 function createInstancedMesh(points, smoothPoints) {
     // Calculate distances and sphere sizes

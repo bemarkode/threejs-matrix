@@ -24,7 +24,7 @@
 [*] refactor function positions
 [-] scale issues
 [*] fade in the grid
-[ ] fade out
+[*] fade out
     [ ] version with the scale starting as it is now master 
         [ ] version with thick animated grid lines
         [ ] version with animated spheres inline towards root
