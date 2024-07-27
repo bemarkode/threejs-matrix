@@ -163,6 +163,7 @@ function setupScrollAnimation() {
         const progress = (tl.progress() - chunkSize * 6) / chunkSize;
         animateCrossingSphere(progress, 'rise');
         animateTextFadeOut("traceback", progress);
+        animateSegmentsBack(progress);
     }})
     .to({}, {duration: chunkSize, onUpdate: () => {
         const progress = (tl.progress() - chunkSize * 7) / chunkSize;
@@ -589,85 +590,6 @@ function animateTextFadeOut(identifier, progress) {
     }
 }
 
-function animateSpheresScale(progress) {
-    const totalSpheres = 101;
-    const matrix = new THREE.Matrix4();
-    const maxScaleFactor = 2; // Adjust this value to change the maximum scale
-    
-    function scaleSphereSegment(indices, maxSpheres, reverse = false) {
-        const spheresToScale = Math.ceil(lerp(0, maxSpheres, progress));
-        
-        indices.forEach((index, i) => {
-            const sphereIndex = reverse ? maxSpheres - 1 - i : i;
-            instancedMesh.getMatrixAt(index, matrix);
-            const position = new THREE.Vector3();
-            const quaternion = new THREE.Quaternion();
-            const scale = new THREE.Vector3();
-            matrix.decompose(position, quaternion, scale);
-
-            const initialSize = instancedMesh.userData.uniformSphereSizes[index];
-            const finalSize = instancedMesh.userData.sphereSizes[index];
-
-            if (sphereIndex < spheresToScale) {
-                // Calculate local progress so that it increases as we approach the crossing point
-                const localProgress = reverse 
-                    ? 1 - (spheresToScale - sphereIndex) / spheresToScale 
-                    : sphereIndex / spheresToScale;
-                
-                const scaleFactor = lerp(1, maxScaleFactor, localProgress);
-                const newSize = finalSize * scaleFactor;
-                scale.set(newSize, newSize, newSize);
-            } else {
-                // For remaining spheres, interpolate between uniformSphereSizes and sphereSizes
-                const t = progress; // Adjust this factor to control the scaling speed of remaining spheres
-                const newSize = lerp(initialSize, finalSize, t);
-                scale.set(newSize, newSize, newSize);
-            }
-
-            matrix.compose(position, quaternion, scale);
-            instancedMesh.setMatrixAt(index, matrix);
-        });
-    }
-
-    // Use grid coordinates for animation
-    const rowCrossingIndex = crossingGridCoords.x;
-    const columnCrossingIndex = crossingGridCoords.y;
-
-    // Animate row spheres
-    scaleSphereSegment(rowSpheresIndices.slice(0, rowCrossingIndex + 1), rowCrossingIndex + 1);
-    scaleSphereSegment(rowSpheresIndices.slice(rowCrossingIndex), totalSpheres - rowCrossingIndex, true);
-
-    // Animate column spheres
-    scaleSphereSegment(columnSpheresIndices.slice(0, columnCrossingIndex + 1), columnCrossingIndex + 1);
-    scaleSphereSegment(columnSpheresIndices.slice(columnCrossingIndex), totalSpheres - columnCrossingIndex, true);
-
-    // Scale all other spheres
-    const allIndices = new Set(Array.from({ length: instancedMesh.count }, (_, i) => i));
-    const animatedIndices = new Set([...rowSpheresIndices, ...columnSpheresIndices]);
-    const remainingIndices = [...allIndices].filter(i => !animatedIndices.has(i));
-
-    remainingIndices.forEach(index => {
-        instancedMesh.getMatrixAt(index, matrix);
-        const position = new THREE.Vector3();
-        const quaternion = new THREE.Quaternion();
-        const scale = new THREE.Vector3();
-        matrix.decompose(position, quaternion, scale);
-
-        const initialSize = instancedMesh.userData.uniformSphereSizes[index];
-        const finalSize = instancedMesh.userData.sphereSizes[index];
-        const newSize = lerp(initialSize, finalSize, progress);
-
-        scale.set(newSize, newSize, newSize);
-        matrix.compose(position, quaternion, scale);
-        instancedMesh.setMatrixAt(index, matrix);
-    });
-
-    instancedMesh.instanceMatrix.needsUpdate = true;
-}
-
-function animateOtherSpheresScale(progress) {
-
-}
 
 function animateSphereSegments(progress) {
     const totalSpheres = 101;
@@ -721,6 +643,7 @@ function animateSphereSegments(progress) {
 }
 
 function animateAllSpheresScale(progress) {
+    
     const matrix = new THREE.Matrix4();
 
     for (let i = 0; i < instancedMesh.count; i++) {
@@ -738,6 +661,52 @@ function animateAllSpheresScale(progress) {
         matrix.compose(position, quaternion, scale);
         instancedMesh.setMatrixAt(i, matrix);
     }
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
+}
+
+function animateSegmentsBack(progress) {
+    const totalSpheres = 101;
+    const matrix = new THREE.Matrix4();
+    
+    // Initialize previousSizes if it doesn't exist
+    if (!instancedMesh.userData.previousSizes) {
+        instancedMesh.userData.previousSizes = new Array(instancedMesh.count).fill(null);
+    }
+
+    function resetSegmentScale(indices) {
+        indices.forEach((index) => {
+            instancedMesh.getMatrixAt(index, matrix);
+            const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+            const scale = new THREE.Vector3();
+            matrix.decompose(position, quaternion, scale);
+
+            const baseSize = instancedMesh.userData.sphereSizes[index];
+            
+            // Use the stored previous size or current size, whichever is larger
+            if (instancedMesh.userData.previousSizes[index] === null) {
+                instancedMesh.userData.previousSizes[index] = scale.x;
+            } else {
+                instancedMesh.userData.previousSizes[index] = Math.max(instancedMesh.userData.previousSizes[index], scale.x);
+            }
+
+            const maxSize = instancedMesh.userData.previousSizes[index];
+            
+            // Interpolate from max size to base size
+            const newSize = lerp(maxSize, baseSize, progress);
+            
+            scale.set(newSize, newSize, newSize);
+            matrix.compose(position, quaternion, scale);
+            instancedMesh.setMatrixAt(index, matrix);
+        });
+    }
+
+    // Reset row spheres
+    resetSegmentScale(rowSpheresIndices);
+
+    // Reset column spheres
+    resetSegmentScale(columnSpheresIndices);
 
     instancedMesh.instanceMatrix.needsUpdate = true;
 }
@@ -855,6 +824,7 @@ function animatePointsTransition(progress) {
 
 function resetAllAnimations() {
     resetPlaneMovement();
+    animateSegmentsBack(1);
     resetSphereScales(); 
     resetCrossingSphere();
     resetPointsTransition();
