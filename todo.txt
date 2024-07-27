@@ -22,13 +22,14 @@
 [*] add root cause traceback
 [*] refactor text animation - DRY
 [*] refactor function positions
-[-] scale issues
 [*] fade in the grid
 [*] fade out
+[-] scale issues
     [ ] version with the scale starting as it is now master 
         [ ] version with thick animated grid lines
         [ ] version with animated spheres inline towards root
     [ ] version with the uniform scale starting
-        [ ] version with the initial scale appearing at analysis
+        [*] version with only the row and column scaling
+        [*] version with the initial scale appearing at analysis
         [ ] version with the reversed radial animation of the scales
 [ ] check the scroll trigger to animation
