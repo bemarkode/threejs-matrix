@@ -610,7 +610,7 @@ function animateTextFadeOut(identifier, progress) {
 function animateSphereSegments(progress) {
     const totalSpheres = 101;
     const matrix = new THREE.Matrix4();
-    const maxScaleFactor = 4; // Adjust this value to change the maximum scale
+    const maxScaleFactor = 2.5; // Adjust this value to change the maximum scale
     
     function scaleSphereSegment(indices, maxSpheres, reverse = false) {
         const spheresToScale = Math.ceil(lerp(0, maxSpheres, progress));
@@ -840,8 +840,7 @@ function animatePointsTransition(progress) {
 
 function resetAllAnimations() {
     resetPlaneMovement();
-    animateSegmentsBack(1);
-    resetSphereScales(); 
+    // resetSphereScales(); 
     resetCrossingSphere();
     resetPointsTransition();
     

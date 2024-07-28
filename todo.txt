@@ -25,5 +25,5 @@
 [*] fade in the grid
 [*] fade out
 [*] check the scroll trigger to animation
-[ ] fix scale issues on transition
+[*] fix scale issues on transition
 [ ] improve ux of the animation
