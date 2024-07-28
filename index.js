@@ -111,18 +111,38 @@ function adjustCamera() {
 
 function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
-
-    const numChunks = 12; // Increased to accommodate more text animations
-    const chunkSize = 1 / numChunks;
+    const numChunks = 11;
+    const chunkDuration = 1; // 1 second per chunk
 
     const tl = gsap.timeline({
         scrollTrigger: {
             trigger: container,
-            start: "bottom bottom",
-            end: "+=15000",
-            scrub: true,
+            start: "top top",
+            end: `+=${(numChunks) * 100}%`,
+            scrub: 0.5,
             pin: true,
             anticipatePin: 0,
+            snap: {
+                snapTo: 1 / (numChunks),
+                duration: 0,
+                //delay: 0.01,
+                ease: "sine.inOut", // other options: "power2.inOut", "back.out", "bounce.out", "circ.out", "cubic.out", "elastic.out", "expo.out", "quad.out", "sine.inOut"
+
+            },
+            onUpdate: (self) => {
+                const currentChunk = Math.floor(self.progress * numChunks);
+                const chunkProgress = (self.progress * numChunks) % 1;
+                updateAnimation(currentChunk, chunkProgress, self.direction);
+                if (self.progress > 0.99) {
+                    console.log("Animation complete");
+                    completeAllAnimations();
+                }
+            },
+            onComplete: () => {
+                // Ensure final state is reached
+                updateAnimation(numChunks - 1, 1, 1);
+            }
+
         }
     });
 
@@ -132,73 +152,75 @@ function setupScrollAnimation() {
     createText("Correction", "correction");
     createText("Final result", "final");
 
-    tl.to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = tl.progress() / (chunkSize);
-        animateGridAppearance(progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize) / chunkSize;
-        animatePlaneFadeIn(progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 2) / chunkSize;
-        animatePlaneMovement(progress);
-        animateTextFadeIn("analysis", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 3) / chunkSize;
-        animatePlaneFadeOut(progress);
-        animateTextFadeOut("analysis", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 4) / chunkSize;
-        animateAllSpheresScale(progress);
-        animateTextFadeIn("traceback", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 5) / chunkSize;
-        animateSphereSegments(progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 6) / chunkSize;
-        animateCrossingSphere(progress, 'rise');
-        animateTextFadeOut("traceback", progress);
-        animateSegmentsBack(progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 7) / chunkSize;
-        animateCrossingSphere(progress, 'color');
-        animateTextFadeIn("correction", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 8) / chunkSize;
-        animateCrossingSphere(progress, 'return');
-        animateTextFadeOut("correction", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 9) / chunkSize;
-        animatePointsTransition(progress);
-        animateCrossingSphere(progress, 'fade');
-        animateTextFadeIn("final", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 10) / chunkSize;
-        animateTextFadeOut("final", progress);
-    }})
-    .to({}, {duration: chunkSize, onUpdate: () => {
-        const progress = (tl.progress() - chunkSize * 11) / chunkSize;
-        animateGridAppearanceBack(progress);
-    }});
+    // Add empty tweens for each chunk
+    for (let i = 0; i < numChunks - 1; i++) {
+        tl.to({}, {duration: chunkDuration});
+    }
 
+    function updateAnimation(chunk, progress, direction) {
+        // Reset all animations before updating
+        resetAllAnimations();
 
-    tl.eventCallback("onUpdate", () => {
-        const progress = tl.progress();
-        if (progress < 0.01) {
-            resetAllAnimations();
-        } else if (progress > 0.99) {
-            completeAllAnimations();
+        // Animate chunks up to the current one
+        for (let i = 0; i < chunk; i++) {
+            animateChunk(i, 1); // Fully animate previous chunks
         }
-    });
+
+        // Animate the current chunk
+        animateChunk(chunk, progress);
+        if (chunk === numChunks - 1 && progress === 1) {
+            completeAllAnimations();
+            console.log('animation complete');
+        }
+    }
+
+    function animateChunk(chunk, progress) {
+        switch (chunk) {
+            case 0:
+                animateGridAppearance(progress);
+                break;
+            case 1:
+                animatePlaneFadeIn(progress);
+                break;
+            case 2:
+                animatePlaneMovement(progress);
+                animateTextFadeIn("analysis", progress);
+                break;
+            case 3:
+                animatePlaneFadeOut(progress);
+                animateTextFadeOut("analysis", progress);
+                break;
+            case 4:
+                animateAllSpheresScale(progress);
+                animateTextFadeIn("traceback", progress);
+                break;
+            case 5:
+                animateSphereSegments(progress);
+                break;
+            case 6:
+                animateCrossingSphere(progress, 'rise');
+                animateTextFadeOut("traceback", progress);
+                animateSegmentsBack(progress);
+                break;
+            case 7:
+                animateCrossingSphere(progress, 'color');
+                animateTextFadeIn("correction", progress);
+                break;
+            case 8:
+                animateCrossingSphere(progress, 'return');
+                animateTextFadeOut("correction", progress);
+                break;
+            case 9:
+                animatePointsTransition(progress);
+                animateCrossingSphere(progress, 'fade');
+                animateTextFadeIn("final", progress);
+                break;
+            case 10:
+                animateTextFadeOut("final", progress);
+                animateGridAppearanceBack(progress);
+                break;
+        }     
+    }
 }
 
 function animateGridAppearance(progress) {
@@ -209,9 +231,9 @@ function animateGridAppearance(progress) {
 }
 
 function animateGridAppearanceBack(progress) {
-    
     const { width, length } = gridDimensions;
-    const mappedY = startingYForPlane + (width) - progress * (width) - 20;
+    // Ensure the plane moves slightly past its starting position
+    const mappedY = startingYForPlane + (width) - progress * length - 20;
     xzPlane.position.set(xzPlane.position.x, mappedY, 0);
 }
 
@@ -406,13 +428,6 @@ function identifyGridSpheres(points, rowIndex, columnIndex) {
     console.log("Column Indices:", columnSpheresIndices);
 }
 
-function createLine(points, color) {
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color });
-    const line = new THREE.Line(geometry, material);
-    line.geometry.setDrawRange(0, 0);
-    return line;
-}
 
 function createCrossingSphere() {
     const baseGeometry = new THREE.IcosahedronGeometry(100, 0);  // radius 100, detail 0
@@ -586,7 +601,8 @@ function animateTextFadeIn(identifier, progress) {
 
 function animateTextFadeOut(identifier, progress) {
     if (textMeshes[identifier]) {
-        textMeshes[identifier].material.opacity = 1 - progress;
+        // Ensure the opacity goes all the way to 0
+        textMeshes[identifier].material.opacity = Math.max(0, 1 - progress);
     }
 }
 
@@ -832,6 +848,8 @@ function resetAllAnimations() {
     Object.values(textMeshes).forEach(mesh => {
         mesh.material.opacity = 0;
     });
+    const { width } = gridDimensions;
+    xzPlane.position.set(xzPlane.position.x, startingYForPlane - 20, 0);
 }
 
 function resetPlaneMovement() {
