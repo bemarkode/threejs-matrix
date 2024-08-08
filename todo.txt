@@ -26,4 +26,4 @@
 [*] fade out
 [*] check the scroll trigger to animation
 [*] fix scale issues on transition
-[ ] improve ux of the animation
+[*] improve ux of the animation
