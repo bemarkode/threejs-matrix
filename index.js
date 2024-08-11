@@ -129,7 +129,6 @@ function setupScrollAnimation() {
     gsap.registerPlugin(ScrollTrigger);
     const numChunks = 13;
     let currentChunk = -1;
-    let lastProgress = 0;
 
     const tl = gsap.timeline({
         scrollTrigger: {
@@ -159,12 +158,10 @@ function setupScrollAnimation() {
                     currentChunk = targetChunk;
                 }
 
-                lastProgress = self.progress;
             },
             onRefresh: () => {
                 ScrollTrigger.clearScrollMemory();
                 window.history.scrollRestoration = "manual";
-                lastProgress = 0;
             },
         },
     });
@@ -269,14 +266,12 @@ function animateGridAppearance(progress) {
 function animateGridAppearanceBack(progress) {
 
     const { width, length } = gridDimensions;
-    // Ensure the plane moves slightly past its starting position
     const mappedY = startingYForPlane + width - progress * length - 20;
     xzPlane.position.set(xzPlane.position.x, mappedY, 0);
 }
 
 function createInstancedMesh(points, smoothPoints) {
 
-    // Calculate distances and sphere sizes
     const distances = calculateDistances(points, smoothPoints);
     const sphereSizes = calculateSphereSizes(distances);
     const uniformSphereSizes = Array(10201).fill(10);
@@ -298,7 +293,7 @@ function createInstancedMesh(points, smoothPoints) {
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
     const matrix = new THREE.Matrix4();
-    const color = new THREE.Color(0.75, 0.85, 0.95); // Start with white color
+    const color = new THREE.Color(0.75, 0.85, 0.95); 
 
     points.forEach((point, i) => {
         const size = uniformSphereSizes[i];
@@ -698,6 +693,7 @@ function animateSphereSegments(progress) {
     const maxScaleFactor = 2.5; // Adjust this value to change the maximum scale
 
     function scaleSphereSegment(indices, maxSpheres, reverse = false) {
+
         const spheresToScale = Math.ceil(lerp(0, maxSpheres, progress));
 
         indices.forEach((index, i) => {
@@ -903,76 +899,6 @@ function animateCrossingSphere(progress, phase) {
     }
 }
 
-function animatePointsTransition(progress) {
-
-    const { startPositions, smoothPositions, uniformSphereSizes, sphereSizes } =
-        instancedMesh.userData;
-    const matrix = new THREE.Matrix4();
-
-    // Calculate distances from crossing point
-    const distancesFromCrossing = startPositions.map((pos) =>
-        pos.distanceTo(crossingPoint)
-    );
-    const maxDistanceFromCrossing = Math.max(...distancesFromCrossing);
-    const maxDistance = Math.max(...distances);
-
-    const minSize = 10; // Minimum sphere size
-
-    for (let i = 0; i < instancedMesh.count; i++) {
-        const startPos = startPositions[i];
-        const smoothPos = smoothPositions[i];
-        const initialSize = sphereSizes[i];
-        const pointDistance = startPos.distanceTo(smoothPos);
-
-        // Calculate start and end times for each sphere
-        const distanceRatio =
-            distancesFromCrossing[i] / maxDistanceFromCrossing;
-        const startTime = distanceRatio * 1; // Adjust this multiplier to control stagger amount
-        const endTime = 1 - (1 - distanceRatio) * 0.75; // Adjust this to control end time stagger
-
-        // Calculate local progress for this sphere
-        let localProgress;
-        if (progress < startTime) {
-            localProgress = 0;
-        } else if (progress > endTime) {
-            localProgress = 1;
-        } else {
-            localProgress = (progress - startTime) / (endTime - startTime);
-        }
-
-        // Ease the local progress if desired
-        // localProgress = easeInOutCubic(localProgress);
-
-        const newPos = new THREE.Vector3().lerpVectors(
-            startPos,
-            smoothPos,
-            localProgress
-        );
-
-        // Calculate the new size
-        const newSize = lerp(initialSize, minSize, localProgress);
-
-        matrix.makeScale(newSize, newSize, newSize); // Set the new scale
-        matrix.setPosition(newPos); // Set the position
-        instancedMesh.setMatrixAt(i, matrix);
-
-        // Calculate color based on distance and overall animation progress
-        const colorProgress = pointDistance / maxDistance;
-        const startColor = lerpColor(
-            gradientColors[0].color,
-            gradientColors[1].color,
-            colorProgress
-        );
-        const endColor = new THREE.Color(0x00bbff);
-        const finalColor = lerpColor(startColor, endColor, localProgress);
-
-        instancedMesh.setColorAt(i, finalColor);
-    }
-
-    instancedMesh.instanceMatrix.needsUpdate = true;
-    instancedMesh.instanceColor.needsUpdate = true;
-}
-
 function transitionColor(progress) {
 
     const { startPositions, smoothPositions } = instancedMesh.userData;
@@ -1112,12 +1038,14 @@ function transitionPosition(progress) {
 }
 
 function completeAllAnimations() {
+
     Object.values(textMeshes).forEach((mesh) => {
         mesh.material.opacity = 0;
     });
 }
 
 function initializePlane() {
+
     if (yzPlane) {
         yzPlane.material.uniforms.planeOpacity.value = 0;
         yzPlane.material.needsUpdate = true;
@@ -1125,6 +1053,7 @@ function initializePlane() {
 }
 
 function lerpColor(colorA, colorB, t) {
+
     return new THREE.Color(
         colorA.r + (colorB.r - colorA.r) * t,
         colorA.g + (colorB.g - colorA.g) * t,
@@ -1133,12 +1062,14 @@ function lerpColor(colorA, colorB, t) {
 }
 
 function onWindowResize() {
+
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function lerp(start, end, t) {
+    
     return start * (1 - t) + end * t;
 }
 
