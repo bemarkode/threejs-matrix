@@ -134,7 +134,7 @@ function setupScrollAnimation() {
         scrollTrigger: {
             trigger: container,
             start: "bottom bottom",
-            end: `+=${10 * 100}%`,
+            end: `+=${7 * 100}%`,
             pin: true,
             fastScrollEnd: true,
             preventOverlaps: true,
@@ -180,6 +180,7 @@ function setupScrollAnimation() {
             {},
             {
                 duration: 0.5, // Adjust this duration as needed
+                ease: "power3.out",
                 onUpdate: function () {
                     let progress = this.progress();
                     if (direction < 0) {

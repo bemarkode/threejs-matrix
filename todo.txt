@@ -27,3 +27,5 @@
 [*] check the scroll trigger to animation
 [*] fix scale issues on transition
 [*] improve ux of the animation
+[ ] add the functions for scale and color correction before transition
+[ ] final tweaks
