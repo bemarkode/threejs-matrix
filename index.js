@@ -127,7 +127,7 @@ function adjustCamera() {
 function setupScrollAnimation() {
 
     gsap.registerPlugin(ScrollTrigger);
-    const numChunks = 13;
+    const numChunks = 11;
     let currentChunk = -1;
 
     const tl = gsap.timeline({
@@ -232,21 +232,20 @@ function setupScrollAnimation() {
                 break;
             case 8:
                 animateCrossingSphere(progress, "return");
+                animateTextFadeOut("correction", progress);
                 break;
             case 9:
                 // animatePointsTransition(progress);
                 transitionColor(progress);
-                animateCrossingSphere(progress, "fade");
-                break;
-            case 10:
+                animateCrossingSphere(progress / 3, "fade");
+
                 transitionScale(progress);
-                animateTextFadeOut("correction", progress);
-                break;
-            case 11:
+
+
                 transitionPosition(progress);
                 animateTextFadeIn("final", progress);
                 break;
-            case 12:
+            case 10:
                 animateGridAppearanceBack(progress);
                 animateTextFadeOut("final", progress);
                 break;
